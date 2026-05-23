@@ -921,7 +921,7 @@ function renderExpectedObservers(session) {
         <strong class="observer-label">${escapeHtml(observer.label)}</strong>
         <div class="small-note observer-hash">${escapeHtml(observer.hash || '')}</div>
       </div>
-      <span class="status">${observer.seen ? 'Seen' : 'Standby'}</span>
+      <span class="status">${observer.seen ? 'Seen' : 'Not Seen'}</span>
     `;
     ui.expectedObservers.appendChild(item);
   }

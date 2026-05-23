@@ -19,6 +19,10 @@
   1-byte, 2-byte, or 3-byte hash labels without changing packet decode rules
 - aligned the remaining map-marker and "Scored Against" standby colors with
   the same accessible score-state palette used across the rest of the app
+- added non-color seen vs not-seen treatment to map markers and score cards so
+  observer state stays distinguishable even when hue alone is not enough
+- fixed the `Scored Against` card layout so longer status labels do not
+  overlap observer names
 
 ## v1.3.0
 

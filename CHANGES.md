@@ -1,6 +1,6 @@
 # Changes
 
-## v1.3.1
+## v1.3.2
 
 - added rolling observer activity tracking in `data/observer-activity.json` so
   the app can rank recent MQTT-connected observers over a configurable time
@@ -23,6 +23,11 @@
   observer state stays distinguishable even when hue alone is not enough
 - fixed the `Scored Against` card layout so longer status labels do not
   overlap observer names
+- included dependency maintenance updates for `qs` and `express`
+
+## v1.3.1
+
+- bumped `ip-address` from `10.1.0` to `10.2.0`
 
 ## v1.3.0
 

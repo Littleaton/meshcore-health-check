@@ -40,9 +40,9 @@ docker compose up -d --build
 
 Default local URL: `http://localhost:3090`
 
-To run the published Docker image instead, use
-`yellowcooln/meshcore-health-check:latest` for production releases or
-`yellowcooln/meshcore-health-check:dev` for the dev branch. See
+To run the published Docker image instead, use the production branch image
+`yellowcooln/meshcore-health-check:latest`, which is built from `main`, or
+`yellowcooln/meshcore-health-check:dev`, which is built from `dev`. See
 [HOWTO.md](HOWTO.md) for a full image-based Compose example.
 
 At minimum, configure MQTT and the test channel in `.env`:

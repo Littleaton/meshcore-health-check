@@ -101,9 +101,11 @@ docker compose up -d
 
 Image tags:
 
-- `yellowcooln/meshcore-health-check:latest` tracks the default production
-  branch.
-- `yellowcooln/meshcore-health-check:dev` tracks the dev branch.
+- `main` is the production branch.
+- `yellowcooln/meshcore-health-check:latest` is the Docker image tag built
+  from `main`.
+- `yellowcooln/meshcore-health-check:dev` is the Docker image tag built from
+  `dev`.
 - Release tags and short-SHA tags are also published by the Docker workflow.
 
 ## User Flow

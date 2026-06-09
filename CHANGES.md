@@ -11,6 +11,8 @@
 - bumped the app version to `1.3.3`
 - reworked the documentation by shortening `README.md`, tightening `HOWTO.md`,
   and moving the complete runtime variable reference into `ENVIRONMENT.md`
+- added clone-from-source quick-start steps and published Docker image
+  deployment instructions
 - updated contributor guidance so env changes and release work keep
   `.env.example`, `ENVIRONMENT.md`, `HOWTO.md`, and `CHANGES.md` in sync
 

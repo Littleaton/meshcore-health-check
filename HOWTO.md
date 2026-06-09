@@ -20,13 +20,25 @@ summarizes observer coverage.
 
 ## Setup
 
-1. Copy the template:
+You can either clone the repo and build locally, or run the published Docker
+image directly.
+
+### Build From Source
+
+1. Clone the repo:
+
+```bash
+git clone https://github.com/yellowcooln/meshcore-health-check.git
+cd meshcore-health-check
+```
+
+2. Copy the template:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Edit `.env`:
+3. Edit `.env`:
 
 - set MQTT connectivity
 - set `TEST_CHANNEL_NAME`
@@ -40,13 +52,59 @@ cp .env.example .env
 
 See [ENVIRONMENT.md](ENVIRONMENT.md) for the full variable reference.
 
-3. Start the service:
+4. Start the service:
 
 ```bash
 docker compose up -d --build
 ```
 
-4. Open `http://localhost:3090` or put the service behind your reverse proxy.
+5. Open `http://localhost:3090` or put the service behind your reverse proxy.
+
+### Run The Published Image
+
+Use this path when you do not want to keep a git checkout on the host.
+
+1. Create a new folder:
+
+```bash
+mkdir meshcore-health-check
+cd meshcore-health-check
+mkdir -p data
+```
+
+2. Create `.env` from the variables documented in
+[ENVIRONMENT.md](ENVIRONMENT.md). At minimum, set MQTT and channel values.
+
+3. Create `docker-compose.yml`:
+
+```yaml
+services:
+  mesh-health-check:
+    image: yellowcooln/meshcore-health-check:latest
+    container_name: mesh-health-check
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      PORT: "3090"
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "3090:3090"
+```
+
+4. Start it:
+
+```bash
+docker compose up -d
+```
+
+Image tags:
+
+- `yellowcooln/meshcore-health-check:latest` tracks the default production
+  branch.
+- `yellowcooln/meshcore-health-check:dev` tracks the dev branch.
+- Release tags and short-SHA tags are also published by the Docker workflow.
 
 ## User Flow
 

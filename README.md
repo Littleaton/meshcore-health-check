@@ -29,12 +29,21 @@ Other community Health Checks:
 
 ## Quick Start
 
+Clone the repo and run the local Compose build:
+
 ```bash
+git clone https://github.com/yellowcooln/meshcore-health-check.git
+cd meshcore-health-check
 cp .env.example .env
 docker compose up -d --build
 ```
 
 Default local URL: `http://localhost:3090`
+
+To run the published Docker image instead, use
+`yellowcooln/meshcore-health-check:latest` for production releases or
+`yellowcooln/meshcore-health-check:dev` for the dev branch. See
+[HOWTO.md](HOWTO.md) for a full image-based Compose example.
 
 At minimum, configure MQTT and the test channel in `.env`:
 

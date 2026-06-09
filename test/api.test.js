@@ -356,6 +356,74 @@ test('packet path distance is estimated from located observer hops', async () =>
   assert.ok(receipt.pathDistance < 210);
 });
 
+test('packet path distance estimates across unknown or unlocated path hops', async () => {
+  const locatedObservers = [
+    {
+      key: '3FA0020000000000000000000000000000000000000000000000000000000000',
+      name: 'Gap Anchor One',
+      lat: 1,
+      lon: 0,
+    },
+    {
+      key: 'AF07FC2005E04D08DDA921E64985E62201BF974AE0B0E35084B804229ED11A2B',
+      name: 'Gap Anchor Two',
+      lat: 1,
+      lon: 3,
+    },
+  ];
+
+  for (const observer of locatedObservers) {
+    ingestMqttMessage(
+      `meshcore/BOS/${observer.key}/status`,
+      Buffer.from(JSON.stringify({
+        name: observer.name,
+        location: {
+          latitude: observer.lat,
+          longitude: observer.lon,
+        },
+      })),
+    );
+  }
+
+  const createResponse = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  const message = `gap distance ${created.code}`;
+  const envelope = buildGroupTextEnvelope({
+    secretHex: process.env.TEST_CHANNEL_SECRET,
+    sender: 'Gap Tester',
+    message,
+    messageHash: '8877665544332211',
+    timestamp: 1760000055,
+    path: ['3FA002', 'AAAAAA', 'BBBBBB'],
+  });
+
+  ingestMqttMessage(
+    `meshcore/BOS/${locatedObservers[1].key}/packets`,
+    Buffer.from(JSON.stringify(envelope)),
+  );
+
+  const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
+  assert.equal(sessionResponse.status, 200);
+
+  const session = await sessionResponse.json();
+  const receipt = session.receipts[0];
+  assert.equal(receipt.pathDistanceSegments.length, 1);
+  assert.equal(receipt.pathDistanceSegments[0].estimated, true);
+  assert.equal(receipt.pathDistanceSegments[0].skippedHopCount, 2);
+  assert.match(receipt.pathDistanceText, / mi$/);
+  assert.ok(receipt.pathDistance > 200);
+  assert.ok(receipt.pathDistance < 210);
+});
+
 test('longest packet distance falls back to observer span when path hops are unknown', async () => {
   const observerKeys = [
     '1111111111111111111111111111111111111111111111111111111111111111',

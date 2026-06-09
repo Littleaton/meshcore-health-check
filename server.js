@@ -2059,18 +2059,21 @@ function receiptDistanceEstimate(report) {
     ? report.path.map(normalizePathHop).filter(Boolean)
     : [];
   const resolved = path
-    .map((hop) => ({
+    .map((hop, index) => ({
       hop,
+      index,
       observer: observerForPathHop(hop, report.observerKey),
+      hasLocation: false,
     }))
-    .filter((entry) =>
-      entry.observer?.lat != null &&
-      entry.observer?.lon != null
-    );
+    .map((entry) => ({
+      ...entry,
+      hasLocation: entry.observer?.lat != null && entry.observer?.lon != null,
+    }));
+  const located = resolved.filter((entry) => entry.hasLocation);
   const segments = [];
-  for (let index = 1; index < resolved.length; index += 1) {
-    const from = resolved[index - 1];
-    const to = resolved[index];
+  for (let index = 1; index < located.length; index += 1) {
+    const from = located[index - 1];
+    const to = located[index];
     if (from.observer.key === to.observer.key) {
       continue;
     }
@@ -2084,6 +2087,8 @@ function receiptDistanceEstimate(report) {
       toHash: to.hop,
       fromLabel: observerDisplayLabel(from.observer, from.observer.key),
       toLabel: observerDisplayLabel(to.observer, to.observer.key),
+      skippedHopCount: Math.max(0, to.index - from.index - 1),
+      estimated: to.index - from.index > 1,
       distance,
       distanceText: formatDistance(distance),
     });
@@ -2093,7 +2098,8 @@ function receiptDistanceEstimate(report) {
     distance: segments.length > 0 ? distance : null,
     distanceText: segments.length > 0 ? formatDistance(distance) : '',
     segments,
-    locatedHopCount: resolved.length,
+    locatedHopCount: located.length,
+    estimatedSegmentCount: segments.filter((segment) => segment.estimated).length,
   };
 }
 

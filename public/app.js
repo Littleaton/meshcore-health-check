@@ -1401,7 +1401,11 @@ function renderReceipts(session) {
           <strong>Estimated path ${escapeHtml(distanceText)}</strong>
           ${distanceSegments.length > 0
             ? `<span>${escapeHtml(distanceSegments.map((segment) =>
-              `${segment.fromLabel} to ${segment.toLabel}: ${segment.distanceText}`
+              `${segment.fromLabel} to ${segment.toLabel}: ${segment.distanceText}${
+                segment.estimated
+                  ? ` estimated over ${segment.skippedHopCount} unknown hop${segment.skippedHopCount === 1 ? '' : 's'}`
+                  : ''
+              }`
             ).join(' · '))}</span>`
             : '<span>Distance estimated from known observer coordinates.</span>'}
         </div>

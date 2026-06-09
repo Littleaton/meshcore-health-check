@@ -155,7 +155,9 @@ distance between those observers and shows the longest packet-path distance for
 the check. Set `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` to choose the displayed
 unit. If the path hops are not known observers with coordinates, the longest
 packet metric falls back to the farthest pair of receipt observers that saw the
-message.
+message. When known observer anchors exist on both sides of unknown or
+no-coordinate hops, the app estimates across that gap and labels it as
+estimated.
 
 ## Region Filters
 

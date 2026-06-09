@@ -10,6 +10,8 @@
   longest-packet distance metric, configurable with `DISTANCE_UNIT=mi` or `km`
 - added an observer-span fallback for the longest-packet metric when packet
   path hops are not known observers with coordinates
+- marked path-distance segments as estimated when they bridge unknown or
+  no-coordinate hops between known observer anchors
 - updated the PWA service worker cache version and bypassed caching for dynamic
   `/share/` and `/api/` requests
 - added API regression coverage for share/session `Cache-Control: no-store`

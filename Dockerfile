@@ -11,7 +11,7 @@ COPY server.js ./
 COPY lib ./lib
 COPY public ./public
 COPY regions ./regions
-COPY README.md HOWTO.md AGENTS.md CHANGES.md ./
+COPY README.md HOWTO.md ENVIRONMENT.md AGENTS.md CHANGES.md ./
 
 ENV NODE_ENV=production
 EXPOSE 3090

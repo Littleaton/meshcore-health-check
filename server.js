@@ -2597,6 +2597,9 @@ app.use((request, response, next) => {
   response.setHeader('X-Frame-Options', 'DENY');
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
+  if (request.path.startsWith('/api/') || request.path.startsWith('/share/')) {
+    response.setHeader('Cache-Control', 'no-store');
+  }
   response.setHeader(
     'Content-Security-Policy',
     [

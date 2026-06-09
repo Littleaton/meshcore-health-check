@@ -79,7 +79,7 @@ test('GET /api/bootstrap returns site and channel configuration', async () => {
 
   const payload = await response.json();
   assert.equal(payload.site.title, 'Boston MeshCore Observer Coverage');
-  assert.equal(payload.site.version, '1.3.2');
+  assert.equal(payload.site.version, '1.3.3');
   assert.equal(payload.testChannel.name, 'health-check');
   assert.equal(payload.testChannel.hash, '99');
   assert.equal(payload.turnstile.enabled, false);
@@ -119,6 +119,7 @@ test('GET /share/:sessionId returns the dashboard shell', async () => {
   assert.equal(response.status, 200);
 
   const html = await response.text();
+  assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.match(html, /Observer coverage someone shared with you\./);
   assert.match(html, /Run Your Own Check/);
 });
@@ -143,6 +144,7 @@ test('POST /api/sessions creates a session and GET returns it', async () => {
 
   const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
   assert.equal(sessionResponse.status, 200);
+  assert.equal(sessionResponse.headers.get('cache-control'), 'no-store');
 
   const session = await sessionResponse.json();
   assert.equal(session.id, created.id);

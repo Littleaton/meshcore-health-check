@@ -1,5 +1,19 @@
 # Changes
 
+## v1.3.3
+
+- fixed retained share links so `/share/:sessionId` pages and session API
+  responses are not cached by the browser or service worker
+- updated the PWA service worker cache version and bypassed caching for dynamic
+  `/share/` and `/api/` requests
+- added API regression coverage for share/session `Cache-Control: no-store`
+  behavior
+- bumped the app version to `1.3.3`
+- reworked the documentation by shortening `README.md`, tightening `HOWTO.md`,
+  and moving the complete runtime variable reference into `ENVIRONMENT.md`
+- updated contributor guidance so env changes and release work keep
+  `.env.example`, `ENVIRONMENT.md`, `HOWTO.md`, and `CHANGES.md` in sync
+
 ## v1.3.2
 
 - added rolling observer activity tracking in `data/observer-activity.json` so

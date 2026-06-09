@@ -111,6 +111,11 @@ function envList(name) {
     .filter(Boolean);
 }
 
+function normalizeDistanceUnit(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return ['km', 'kilometer', 'kilometers'].includes(normalized) ? 'km' : 'mi';
+}
+
 function createLogger(levelName) {
   const LOG_LEVELS = {
     debug: 10,
@@ -303,6 +308,7 @@ const APP_DESCRIPTION = envValue(
   'APP_DESCRIPTION',
   'Generate a test code, send it to the configured channel, and watch observer coverage build in real time.',
 );
+const DISTANCE_UNIT = normalizeDistanceUnit(envValue('DISTANCE_UNIT', 'mi'));
 const PWA_APP_NAME = 'Mesh Reach';
 const REPO_URL = 'https://github.com/yellowcooln/meshcore-health-check';
 const EXTERNAL_LINK_URL = envValue('EXTERNAL_LINK_URL', '');
@@ -1997,11 +2003,106 @@ function shareUrlForSession(session, request = null) {
   return `${requestOrigin(request)}${sharePath}`;
 }
 
+function observerDisplayLabel(observer, fallbackKey = '') {
+  return observer?.name || (fallbackKey ? shortKey(fallbackKey) : '');
+}
+
+function observerForPathHop(hop, terminalObserverKey = '') {
+  const normalizedHop = normalizePathHop(hop);
+  if (!normalizedHop) {
+    return null;
+  }
+  const terminalKey = normalizeKey(terminalObserverKey);
+  if (terminalKey && terminalKey.startsWith(normalizedHop)) {
+    return observerState.get(terminalKey) || null;
+  }
+  const matches = [...observerState.values()]
+    .filter((observer) => observer?.key?.startsWith(normalizedHop));
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function distanceKmBetween(left, right) {
+  if (
+    left?.lat == null || left?.lon == null ||
+    right?.lat == null || right?.lon == null
+  ) {
+    return null;
+  }
+  const earthRadiusKm = 6371.0088;
+  const toRadians = (value) => (Number(value) * Math.PI) / 180;
+  const leftLat = toRadians(left.lat);
+  const rightLat = toRadians(right.lat);
+  const latDelta = toRadians(Number(right.lat) - Number(left.lat));
+  const lonDelta = toRadians(Number(right.lon) - Number(left.lon));
+  const a = Math.sin(latDelta / 2) ** 2
+    + Math.cos(leftLat) * Math.cos(rightLat) * Math.sin(lonDelta / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function convertDistance(km) {
+  if (!Number.isFinite(km)) {
+    return null;
+  }
+  return DISTANCE_UNIT === 'km' ? km : km * 0.621371;
+}
+
+function formatDistance(value) {
+  if (!Number.isFinite(value)) {
+    return '';
+  }
+  const rounded = value < 10 ? Math.round(value * 10) / 10 : Math.round(value);
+  return `${rounded.toLocaleString('en-US')} ${DISTANCE_UNIT}`;
+}
+
+function receiptDistanceEstimate(report) {
+  const path = Array.isArray(report?.path)
+    ? report.path.map(normalizePathHop).filter(Boolean)
+    : [];
+  const resolved = path
+    .map((hop) => ({
+      hop,
+      observer: observerForPathHop(hop, report.observerKey),
+    }))
+    .filter((entry) =>
+      entry.observer?.lat != null &&
+      entry.observer?.lon != null
+    );
+  const segments = [];
+  for (let index = 1; index < resolved.length; index += 1) {
+    const from = resolved[index - 1];
+    const to = resolved[index];
+    if (from.observer.key === to.observer.key) {
+      continue;
+    }
+    const km = distanceKmBetween(from.observer, to.observer);
+    const distance = convertDistance(km);
+    if (!Number.isFinite(distance)) {
+      continue;
+    }
+    segments.push({
+      fromHash: from.hop,
+      toHash: to.hop,
+      fromLabel: observerDisplayLabel(from.observer, from.observer.key),
+      toLabel: observerDisplayLabel(to.observer, to.observer.key),
+      distance,
+      distanceText: formatDistance(distance),
+    });
+  }
+  const distance = segments.reduce((sum, segment) => sum + segment.distance, 0);
+  return {
+    distance: segments.length > 0 ? distance : null,
+    distanceText: segments.length > 0 ? formatDistance(distance) : '',
+    segments,
+    locatedHopCount: resolved.length,
+  };
+}
+
 function serializeSession(session, request = null) {
   const allReports = [...session.receipts.values()]
     .sort((left, right) => left.firstSeenAt - right.firstSeenAt)
     .map((report) => {
       const observer = observerState.get(report.observerKey);
+      const distanceEstimate = receiptDistanceEstimate(report);
       return {
         observerKey: report.observerKey,
         observerHash: report.observerHash,
@@ -2019,6 +2120,10 @@ function serializeSession(session, request = null) {
         snr: report.snr,
         duration: report.duration,
         path: report.path,
+        pathDistance: distanceEstimate.distance,
+        pathDistanceText: distanceEstimate.distanceText,
+        pathDistanceSegments: distanceEstimate.segments,
+        pathLocatedHopCount: distanceEstimate.locatedHopCount,
       };
     });
 
@@ -2039,6 +2144,10 @@ function serializeSession(session, request = null) {
   );
   const denominator = Math.max(1, expected.length, seen.length);
   const percent = Math.round((seen.length / denominator) * 100);
+  const longestPacketDistance = reports
+    .map((report) => Number(report.pathDistance))
+    .filter((value) => Number.isFinite(value))
+    .reduce((max, value) => Math.max(max, value), 0);
 
   return {
     id: session.id,
@@ -2060,6 +2169,9 @@ function serializeSession(session, request = null) {
     channelName: session.channelName,
     observedCount: seen.length,
     repeaterCount: repeaters.length,
+    distanceUnit: DISTANCE_UNIT,
+    longestPacketDistance: longestPacketDistance > 0 ? longestPacketDistance : null,
+    longestPacketDistanceText: longestPacketDistance > 0 ? formatDistance(longestPacketDistance) : '',
     expectedCount: denominator,
     healthPercent: percent,
     healthLabel: healthLabel(percent),
@@ -2117,6 +2229,7 @@ function snapshotPayload() {
       topWindowDays: OBSERVER_TOP_WINDOW_DAYS,
       topCount: OBSERVER_TOP_COUNT,
       hashDisplayBytes: OBSERVER_HASH_DISPLAY_BYTES,
+      distanceUnit: DISTANCE_UNIT,
     },
     results: {
       retentionSeconds: Math.round(RESULT_RETENTION_MS / 1000),

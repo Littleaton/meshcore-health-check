@@ -1622,6 +1622,23 @@ body[data-page-mode="share"] .hero-stage__brief .control-utility-actions a {
   font-size: 0.74rem;
 }
 
+.receipt-distance {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 0.72rem 0.82rem;
+  border: 1px solid rgba(141, 182, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(141, 182, 255, 0.055);
+  color: var(--text);
+}
+
+.receipt-distance span {
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .history-list {
   margin-top: 4px;
 }

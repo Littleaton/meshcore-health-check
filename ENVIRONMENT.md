@@ -17,6 +17,7 @@ in source files.
 | `EXTERNAL_LINK_LABEL` | blank | Label for the optional external link. |
 | `LOG_LEVEL` | `info` | Use `debug` only while troubleshooting ingest or decode behavior. |
 | `TRUST_PROXY` | `1` | Keep enabled behind Nginx, Cloudflare, or another reverse proxy. |
+| `DISTANCE_UNIT` | `mi` | Distance labels for packet-path estimates. Use `mi` or `km`. |
 
 ## Storage
 
@@ -79,6 +80,10 @@ The backend keeps packet handling scoped to the configured test channel.
 
 `OBSERVER_HASH_DISPLAY_BYTES` only changes display labels. It does not restrict
 which packets or path-hop sizes the app accepts.
+
+Packet path distances are estimates based on observer coordinates and path-hop
+hashes that can be matched back to known observers. Unknown or ambiguous hops
+are skipped.
 
 ## Regions
 

@@ -21,6 +21,8 @@ Other community Health Checks:
 - matches MeshCore `GroupText` packets from MQTT
 - scores observer coverage against a default or custom observer set
 - shows receipts, paths, RSSI, SNR, timing, repeaters, and map coverage
+- estimates packet-path distance between known observers, with mile or
+  kilometer labels
 - learns observer names and locations from MQTT metadata
 - tracks recent observer activity and can auto-select the top observers
 - supports region filters from GeoJSON boundary files
@@ -86,6 +88,7 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
   `RESULT_RETENTION_SECONDS` expires.
 - `DASH_BROKER_HOST` changes only the broker label shown in the UI. It does not
   change the actual MQTT connection.
+- `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` controls packet distance labels.
 
 ## Validation
 

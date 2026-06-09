@@ -150,6 +150,11 @@ The dynamic default observer set is stored in `data/observer-activity.json`.
 When `KNOWN_OBSERVERS` is blank, the app ranks observers over
 `OBSERVER_TOP_WINDOW_DAYS` and selects up to `OBSERVER_TOP_COUNT` observers.
 
+When path hops can be matched to observers with coordinates, the app estimates
+distance between those observers and shows the longest packet-path distance for
+the check. Set `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` to choose the displayed
+unit.
+
 ## Region Filters
 
 Set `REGIONS_FILE` to a GeoJSON FeatureCollection to enable region targeting.

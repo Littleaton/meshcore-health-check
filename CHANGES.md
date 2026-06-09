@@ -6,6 +6,8 @@
   responses are not cached by the browser or service worker
 - changed the share button payload to share only the retained result URL so
   paste targets do not prepend extra observer text before the link
+- added packet-path distance estimates between known observer hops and a
+  longest-packet distance metric, configurable with `DISTANCE_UNIT=mi` or `km`
 - updated the PWA service worker cache version and bypassed caching for dynamic
   `/share/` and `/api/` requests
 - added API regression coverage for share/session `Cache-Control: no-store`

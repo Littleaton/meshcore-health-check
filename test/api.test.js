@@ -273,6 +273,89 @@ test('fixture packet ingest matches sessions for 3-byte path hashes', async () =
   assert.equal(session.receipts[0].path.at(-1), 'AF07FC');
 });
 
+test('packet path distance is estimated from located observer hops', async () => {
+  const pathObservers = [
+    {
+      key: '3FA0020000000000000000000000000000000000000000000000000000000000',
+      name: 'Path Hop One',
+      lat: 1,
+      lon: 0,
+    },
+    {
+      key: '860CCA0000000000000000000000000000000000000000000000000000000000',
+      name: 'Path Hop Two',
+      lat: 1,
+      lon: 1,
+    },
+    {
+      key: 'E0EED90000000000000000000000000000000000000000000000000000000000',
+      name: 'Path Hop Three',
+      lat: 1,
+      lon: 2,
+    },
+    {
+      key: 'AF07FC2005E04D08DDA921E64985E62201BF974AE0B0E35084B804229ED11A2B',
+      name: 'Terminal Observer',
+      lat: 1,
+      lon: 3,
+    },
+  ];
+
+  for (const observer of pathObservers) {
+    ingestMqttMessage(
+      `meshcore/BOS/${observer.key}/status`,
+      Buffer.from(JSON.stringify({
+        name: observer.name,
+        location: {
+          latitude: observer.lat,
+          longitude: observer.lon,
+        },
+      })),
+    );
+  }
+
+  const createResponse = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  const message = `distance path ${created.code}`;
+  const envelope = buildGroupTextEnvelope({
+    secretHex: process.env.TEST_CHANNEL_SECRET,
+    sender: 'Distance Tester',
+    message,
+    messageHash: '8899AABBCCDDEEFF',
+    timestamp: 1760000050,
+    path: ['3FA002', '860CCA', 'E0EED9'],
+  });
+
+  ingestMqttMessage(
+    `meshcore/BOS/${pathObservers[3].key}/packets`,
+    Buffer.from(JSON.stringify(envelope)),
+  );
+
+  const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
+  assert.equal(sessionResponse.status, 200);
+
+  const session = await sessionResponse.json();
+  const receipt = session.receipts[0];
+  assert.equal(session.distanceUnit, 'mi');
+  assert.equal(receipt.pathDistanceSegments.length, 3);
+  assert.equal(receipt.pathDistanceSegments[0].fromLabel, 'Path Hop One');
+  assert.equal(receipt.pathDistanceSegments[0].toLabel, 'Path Hop Two');
+  assert.match(receipt.pathDistanceText, / mi$/);
+  assert.match(session.longestPacketDistanceText, / mi$/);
+  assert.equal(session.longestPacketDistance, receipt.pathDistance);
+  assert.ok(receipt.pathDistance > 200);
+  assert.ok(receipt.pathDistance < 210);
+});
+
 test('fixture packet ingest matches sessions for 2-byte path hashes', async () => {
   const createResponse = await fetch(`${baseUrl}/api/sessions`, {
     method: 'POST',

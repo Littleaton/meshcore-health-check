@@ -356,6 +356,72 @@ test('packet path distance is estimated from located observer hops', async () =>
   assert.ok(receipt.pathDistance < 210);
 });
 
+test('longest packet distance falls back to observer span when path hops are unknown', async () => {
+  const observerKeys = [
+    '1111111111111111111111111111111111111111111111111111111111111111',
+    '2222222222222222222222222222222222222222222222222222222222222222',
+  ];
+
+  ingestMqttMessage(
+    `meshcore/BOS/${observerKeys[0]}/status`,
+    Buffer.from(JSON.stringify({
+      name: 'Span Observer One',
+      location: {
+        latitude: 1,
+        longitude: 0,
+      },
+    })),
+  );
+  ingestMqttMessage(
+    `meshcore/BOS/${observerKeys[1]}/status`,
+    Buffer.from(JSON.stringify({
+      name: 'Span Observer Two',
+      location: {
+        latitude: 1,
+        longitude: 3,
+      },
+    })),
+  );
+
+  const createResponse = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  for (const [index, observerKey] of observerKeys.entries()) {
+    const envelope = buildGroupTextEnvelope({
+      secretHex: process.env.TEST_CHANNEL_SECRET,
+      sender: 'Span Tester',
+      message: `span fallback ${created.code}`,
+      messageHash: '9988AABBCCDDEEFF',
+      timestamp: 1760000060 + index,
+      path: ['AAAA', 'BBBB', observerKey.slice(0, 4)],
+    });
+
+    ingestMqttMessage(
+      `meshcore/BOS/${observerKey}/packets`,
+      Buffer.from(JSON.stringify(envelope)),
+    );
+  }
+
+  const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
+  assert.equal(sessionResponse.status, 200);
+
+  const session = await sessionResponse.json();
+  assert.equal(session.longestPacketDistanceSource, 'observer-span');
+  assert.equal(session.longestPacketDistancePair.fromLabel, 'Span Observer One');
+  assert.equal(session.longestPacketDistancePair.toLabel, 'Span Observer Two');
+  assert.match(session.longestPacketDistanceText, / mi$/);
+  assert.ok(session.longestPacketDistance > 200);
+  assert.ok(session.longestPacketDistance < 210);
+});
+
 test('fixture packet ingest matches sessions for 2-byte path hashes', async () => {
   const createResponse = await fetch(`${baseUrl}/api/sessions`, {
     method: 'POST',

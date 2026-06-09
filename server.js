@@ -2097,6 +2097,37 @@ function receiptDistanceEstimate(report) {
   };
 }
 
+function observerSpanDistanceEstimate(reports) {
+  const locatedReceipts = reports
+    .map((report) => {
+      const observer = observerState.get(report.observerKey);
+      return observer?.lat != null && observer?.lon != null
+        ? { report, observer }
+        : null;
+    })
+    .filter(Boolean);
+  let best = null;
+  for (let leftIndex = 0; leftIndex < locatedReceipts.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < locatedReceipts.length; rightIndex += 1) {
+      const left = locatedReceipts[leftIndex];
+      const right = locatedReceipts[rightIndex];
+      const distance = convertDistance(distanceKmBetween(left.observer, right.observer));
+      if (!Number.isFinite(distance) || distance <= 0) {
+        continue;
+      }
+      if (!best || distance > best.distance) {
+        best = {
+          distance,
+          distanceText: formatDistance(distance),
+          fromLabel: observerDisplayLabel(left.observer, left.report.observerKey),
+          toLabel: observerDisplayLabel(right.observer, right.report.observerKey),
+        };
+      }
+    }
+  }
+  return best;
+}
+
 function serializeSession(session, request = null) {
   const allReports = [...session.receipts.values()]
     .sort((left, right) => left.firstSeenAt - right.firstSeenAt)
@@ -2148,6 +2179,12 @@ function serializeSession(session, request = null) {
     .map((report) => Number(report.pathDistance))
     .filter((value) => Number.isFinite(value))
     .reduce((max, value) => Math.max(max, value), 0);
+  const observerSpanDistance = longestPacketDistance > 0
+    ? null
+    : observerSpanDistanceEstimate(reports);
+  const bestDistance = longestPacketDistance > 0
+    ? longestPacketDistance
+    : Number(observerSpanDistance?.distance || 0);
 
   return {
     id: session.id,
@@ -2170,8 +2207,17 @@ function serializeSession(session, request = null) {
     observedCount: seen.length,
     repeaterCount: repeaters.length,
     distanceUnit: DISTANCE_UNIT,
-    longestPacketDistance: longestPacketDistance > 0 ? longestPacketDistance : null,
-    longestPacketDistanceText: longestPacketDistance > 0 ? formatDistance(longestPacketDistance) : '',
+    longestPacketDistance: bestDistance > 0 ? bestDistance : null,
+    longestPacketDistanceText: bestDistance > 0 ? formatDistance(bestDistance) : '',
+    longestPacketDistanceSource: longestPacketDistance > 0
+      ? 'path'
+      : (observerSpanDistance ? 'observer-span' : ''),
+    longestPacketDistancePair: observerSpanDistance
+      ? {
+          fromLabel: observerSpanDistance.fromLabel,
+          toLabel: observerSpanDistance.toLabel,
+        }
+      : null,
     expectedCount: denominator,
     healthPercent: percent,
     healthLabel: healthLabel(percent),

@@ -83,7 +83,8 @@ which packets or path-hop sizes the app accepts.
 
 Packet path distances are estimates based on observer coordinates and path-hop
 hashes that can be matched back to known observers. Unknown or ambiguous hops
-are skipped.
+are skipped. If no hop-by-hop distance can be calculated, the longest packet
+metric falls back to the farthest pair of receipt observers with coordinates.
 
 ## Regions
 

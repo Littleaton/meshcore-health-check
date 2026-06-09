@@ -8,6 +8,8 @@
   paste targets do not prepend extra observer text before the link
 - added packet-path distance estimates between known observer hops and a
   longest-packet distance metric, configurable with `DISTANCE_UNIT=mi` or `km`
+- added an observer-span fallback for the longest-packet metric when packet
+  path hops are not known observers with coordinates
 - updated the PWA service worker cache version and bypassed caching for dynamic
   `/share/` and `/api/` requests
 - added API regression coverage for share/session `Cache-Control: no-store`

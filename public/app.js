@@ -1881,7 +1881,16 @@ function render() {
   ui.observedCount.textContent = `${session.observedCount} / ${session.expectedCount}`;
   ui.repeaterCount.textContent = String(session.repeaterCount || 0);
   if (ui.longestPacketDistance) {
-    ui.longestPacketDistance.textContent = session.longestPacketDistanceText || '--';
+    const distanceText = session.longestPacketDistanceText || '--';
+    ui.longestPacketDistance.textContent = session.longestPacketDistanceSource === 'observer-span'
+      ? `${distanceText} span`
+      : distanceText;
+    if (session.longestPacketDistancePair) {
+      ui.longestPacketDistance.title =
+        `${session.longestPacketDistancePair.fromLabel} to ${session.longestPacketDistancePair.toLabel}`;
+    } else {
+      ui.longestPacketDistance.removeAttribute('title');
+    }
   }
   ui.senderName.textContent = session.sender || 'Pending';
   ui.channelName.textContent = session.channelName ? `#${session.channelName}` : channelLabel;

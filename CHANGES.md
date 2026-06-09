@@ -12,6 +12,8 @@
   path hops are not known observers with coordinates
 - marked path-distance segments as estimated when they bridge unknown or
   no-coordinate hops between known observer anchors
+- added distance labels directly to each `Who saw the message` receipt card,
+  falling back to observer-span distance when per-path distance is unavailable
 - updated the PWA service worker cache version and bypassed caching for dynamic
   `/share/` and `/api/` requests
 - added API regression coverage for share/session `Cache-Control: no-store`

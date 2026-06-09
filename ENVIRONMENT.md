@@ -86,7 +86,9 @@ hashes that can be matched back to known observers. Unknown or ambiguous hops
 are skipped. If no hop-by-hop distance can be calculated, the longest packet
 metric falls back to the farthest pair of receipt observers with coordinates.
 When known observer anchors appear on both sides of unknown or no-coordinate
-hops, the app still estimates that gap and marks it as estimated.
+hops, the app still estimates that gap and marks it as estimated. Receipt cards
+show path distance when available and fall back to observer-span distance when
+only receipt observer coordinates are available.
 
 ## Regions
 

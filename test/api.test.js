@@ -350,6 +350,8 @@ test('packet path distance is estimated from located observer hops', async () =>
   assert.equal(receipt.pathDistanceSegments[0].fromLabel, 'Path Hop One');
   assert.equal(receipt.pathDistanceSegments[0].toLabel, 'Path Hop Two');
   assert.match(receipt.pathDistanceText, / mi$/);
+  assert.equal(receipt.displayDistanceSource, 'path');
+  assert.equal(receipt.displayDistanceText, receipt.pathDistanceText);
   assert.match(session.longestPacketDistanceText, / mi$/);
   assert.equal(session.longestPacketDistance, receipt.pathDistance);
   assert.ok(receipt.pathDistance > 200);
@@ -485,6 +487,9 @@ test('longest packet distance falls back to observer span when path hops are unk
   assert.equal(session.longestPacketDistanceSource, 'observer-span');
   assert.equal(session.longestPacketDistancePair.fromLabel, 'Span Observer One');
   assert.equal(session.longestPacketDistancePair.toLabel, 'Span Observer Two');
+  assert.equal(session.receipts[0].displayDistanceSource, 'observer-span');
+  assert.match(session.receipts[0].displayDistanceText, / mi$/);
+  assert.match(session.receipts[0].displayDistanceLabel, /^farthest observer:/);
   assert.match(session.longestPacketDistanceText, / mi$/);
   assert.ok(session.longestPacketDistance > 200);
   assert.ok(session.longestPacketDistance < 210);

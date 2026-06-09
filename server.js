@@ -2134,6 +2134,35 @@ function observerSpanDistanceEstimate(reports) {
   return best;
 }
 
+function receiptObserverSpanDistanceEstimate(report, reports) {
+  const sourceObserver = observerState.get(report?.observerKey);
+  if (sourceObserver?.lat == null || sourceObserver?.lon == null) {
+    return null;
+  }
+  let best = null;
+  for (const otherReport of reports) {
+    if (otherReport.observerKey === report.observerKey) {
+      continue;
+    }
+    const otherObserver = observerState.get(otherReport.observerKey);
+    if (otherObserver?.lat == null || otherObserver?.lon == null) {
+      continue;
+    }
+    const distance = convertDistance(distanceKmBetween(sourceObserver, otherObserver));
+    if (!Number.isFinite(distance) || distance <= 0) {
+      continue;
+    }
+    if (!best || distance > best.distance) {
+      best = {
+        distance,
+        distanceText: formatDistance(distance),
+        toLabel: observerDisplayLabel(otherObserver, otherReport.observerKey),
+      };
+    }
+  }
+  return best;
+}
+
 function serializeSession(session, request = null) {
   const allReports = [...session.receipts.values()]
     .sort((left, right) => left.firstSeenAt - right.firstSeenAt)
@@ -2168,6 +2197,26 @@ function serializeSession(session, request = null) {
   const reports = session.allowlistEnabled && expected.length > 0
     ? allReports.filter((report) => expected.includes(normalizeKey(report.observerKey)))
     : allReports;
+  for (const report of reports) {
+    if (report.pathDistance != null && Number.isFinite(Number(report.pathDistance))) {
+      report.displayDistance = report.pathDistance;
+      report.displayDistanceText = report.pathDistanceText;
+      report.displayDistanceSource = 'path';
+      continue;
+    }
+    const observerSpan = receiptObserverSpanDistanceEstimate(report, reports);
+    if (observerSpan) {
+      report.displayDistance = observerSpan.distance;
+      report.displayDistanceText = observerSpan.distanceText;
+      report.displayDistanceSource = 'observer-span';
+      report.displayDistanceLabel = `farthest observer: ${observerSpan.toLabel}`;
+    } else {
+      report.displayDistance = null;
+      report.displayDistanceText = '';
+      report.displayDistanceSource = '';
+      report.displayDistanceLabel = '';
+    }
+  }
   const seen = dedupe(reports.map((report) => normalizeKey(report.observerKey)));
   const repeaters = dedupe(
     reports.flatMap((report) =>

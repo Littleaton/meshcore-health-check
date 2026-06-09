@@ -1391,15 +1391,19 @@ function renderReceipts(session) {
     const pathMarkup = receipt.path.length > 0
       ? receipt.path.map((hop) => `<span>${escapeHtml(hop)}</span>`).join('')
       : '<span>No path data</span>';
-    const distanceText = String(receipt.pathDistanceText || '').trim();
+    const distanceText = String(receipt.displayDistanceText || receipt.pathDistanceText || '').trim();
+    const distanceSource = String(receipt.displayDistanceSource || '').trim();
+    const distanceLabel = String(receipt.displayDistanceLabel || '').trim();
     const distanceSegments = Array.isArray(receipt.pathDistanceSegments)
       ? receipt.pathDistanceSegments
       : [];
     const distanceMarkup = distanceText
       ? `
         <div class="receipt-distance">
-          <strong>Estimated path ${escapeHtml(distanceText)}</strong>
-          ${distanceSegments.length > 0
+          <strong>${distanceSource === 'observer-span' ? 'Observer span' : 'Estimated path'} ${escapeHtml(distanceText)}</strong>
+          ${distanceSource === 'observer-span'
+            ? `<span>${escapeHtml(distanceLabel || 'Estimated from receipt observer coordinates.')}</span>`
+            : distanceSegments.length > 0
             ? `<span>${escapeHtml(distanceSegments.map((segment) =>
               `${segment.fromLabel} to ${segment.toLabel}: ${segment.distanceText}${
                 segment.estimated
@@ -1415,7 +1419,7 @@ function renderReceipts(session) {
       receipt.rssi != null ? `RSSI ${receipt.rssi}` : '',
       receipt.snr != null ? `SNR ${receipt.snr}` : '',
       receipt.duration != null ? `${receipt.duration} ms` : '',
-      distanceText ? `Path ${distanceText}` : '',
+      distanceText ? `${distanceSource === 'observer-span' ? 'Span' : 'Path'} ${distanceText}` : '',
     ]
       .filter(Boolean)
       .join(' · ');
@@ -1754,7 +1758,7 @@ function buildDrawerContent() {
               ${drawerStat('RSSI', receipt.rssi != null ? String(receipt.rssi) : 'n/a')}
               ${drawerStat('SNR', receipt.snr != null ? String(receipt.snr) : 'n/a')}
               ${drawerStat('Duration', receipt.duration != null ? `${receipt.duration} ms` : 'n/a')}
-              ${drawerStat('Path Distance', receipt.pathDistanceText || 'n/a')}
+              ${drawerStat('Distance', receipt.displayDistanceText || receipt.pathDistanceText || 'n/a')}
               ${drawerStat('Packets', String(receipt.count))}
             </div>
           </section>

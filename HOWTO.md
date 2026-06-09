@@ -157,7 +157,9 @@ unit. If the path hops are not known observers with coordinates, the longest
 packet metric falls back to the farthest pair of receipt observers that saw the
 message. When known observer anchors exist on both sides of unknown or
 no-coordinate hops, the app estimates across that gap and labels it as
-estimated.
+estimated. The `Who saw the message` cards show the receipt's path distance
+when available, otherwise they show an observer-span distance to the farthest
+other located observer in the result.
 
 ## Region Filters
 

@@ -822,7 +822,6 @@ async function copySessionShareLink() {
 
   const shareData = {
     title: document.title,
-    text: `Observer coverage for ${session.code}`,
     url: shareUrl,
   };
 

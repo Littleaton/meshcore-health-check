@@ -32,7 +32,7 @@ test('share button uses the browser share API with the retained share link', asy
 
   const shareCalls = await page.evaluate(() => window.__shareCalls);
   expect(shareCalls).toHaveLength(1);
-  expect(shareCalls[0].text).toMatch(/^Observer coverage for MHC-[0-9A-F]{6}$/);
+  expect(shareCalls[0].text).toBeUndefined();
   expect(shareCalls[0].url).toMatch(/^http:\/\/127\.0\.0\.1:3091\/share\/[0-9a-f-]+$/i);
 });
 

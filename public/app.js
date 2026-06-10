@@ -1358,9 +1358,9 @@ function renderObserverMap(session) {
       marker.setIcon(markerIcon(observer));
     }
     marker.bindPopup(`
-      <strong>${observer.label}</strong><br>
+      <strong>${escapeHtml(observer.label)}</strong><br>
       ${observer.seen ? 'Seen by this check' : 'Not seen by this check'}<br>
-      ${observer.hash || '--'} · ${observer.shortKey}
+      ${escapeHtml(observer.hash || '--')} · ${escapeHtml(observer.shortKey)}
     `);
   }
 
@@ -1494,7 +1494,7 @@ function renderReceiptTimeline(session) {
     row.className = 'timeline-row';
     row.innerHTML = `
       <div class="timeline-copy">
-        <strong>${receipt.observerLabel}</strong>
+        <strong>${escapeHtml(receipt.observerLabel)}</strong>
         <span>${delta === 0 ? `First receipt · ${formatTime(receipt.firstSeenAt)}` : `+${formatElapsed(delta)} · ${formatTime(receipt.firstSeenAt)}`}</span>
       </div>
       <div class="timeline-track">

@@ -14,6 +14,8 @@
   no-coordinate hops between known observer anchors
 - added distance labels directly to each `Who saw the message` receipt card,
   falling back to observer-span distance when per-path distance is unavailable
+- escaped untrusted observer labels in the receipt timeline and Leaflet map
+  popups to prevent CVE-2026-45323-style stored XSS from MeshCore/MQTT names
 - updated the PWA service worker cache version and bypassed caching for dynamic
   `/share/` and `/api/` requests
 - added API regression coverage for share/session `Cache-Control: no-store`

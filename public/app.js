@@ -21,6 +21,7 @@ const ui = {
   healthPercent: document.querySelector('#health-percent'),
   observedCount: document.querySelector('#observed-count'),
   repeaterCount: document.querySelector('#repeater-count'),
+  longestPacketDistance: document.querySelector('#longest-packet-distance'),
   senderName: document.querySelector('#sender-name'),
   channelName: document.querySelector('#channel-name'),
   heroEyebrow: document.querySelector('#hero-eyebrow'),
@@ -822,7 +823,6 @@ async function copySessionShareLink() {
 
   const shareData = {
     title: document.title,
-    text: `Observer coverage for ${session.code}`,
     url: shareUrl,
   };
 
@@ -1358,9 +1358,9 @@ function renderObserverMap(session) {
       marker.setIcon(markerIcon(observer));
     }
     marker.bindPopup(`
-      <strong>${observer.label}</strong><br>
+      <strong>${escapeHtml(observer.label)}</strong><br>
       ${observer.seen ? 'Seen by this check' : 'Not seen by this check'}<br>
-      ${observer.hash || '--'} · ${observer.shortKey}
+      ${escapeHtml(observer.hash || '--')} · ${escapeHtml(observer.shortKey)}
     `);
   }
 
@@ -1391,10 +1391,35 @@ function renderReceipts(session) {
     const pathMarkup = receipt.path.length > 0
       ? receipt.path.map((hop) => `<span>${escapeHtml(hop)}</span>`).join('')
       : '<span>No path data</span>';
+    const distanceText = String(receipt.displayDistanceText || receipt.pathDistanceText || '').trim();
+    const distanceSource = String(receipt.displayDistanceSource || '').trim();
+    const distanceLabel = String(receipt.displayDistanceLabel || '').trim();
+    const distanceSegments = Array.isArray(receipt.pathDistanceSegments)
+      ? receipt.pathDistanceSegments
+      : [];
+    const distanceMarkup = distanceText
+      ? `
+        <div class="receipt-distance">
+          <strong>${distanceSource === 'observer-span' ? 'Observer span' : 'Estimated path'} ${escapeHtml(distanceText)}</strong>
+          ${distanceSource === 'observer-span'
+            ? `<span>${escapeHtml(distanceLabel || 'Estimated from receipt observer coordinates.')}</span>`
+            : distanceSegments.length > 0
+            ? `<span>${escapeHtml(distanceSegments.map((segment) =>
+              `${segment.fromLabel} to ${segment.toLabel}: ${segment.distanceText}${
+                segment.estimated
+                  ? ` estimated over ${segment.skippedHopCount} unknown hop${segment.skippedHopCount === 1 ? '' : 's'}`
+                  : ''
+              }`
+            ).join(' · '))}</span>`
+            : '<span>Distance estimated from known observer coordinates.</span>'}
+        </div>
+      `
+      : '';
     const metrics = [
       receipt.rssi != null ? `RSSI ${receipt.rssi}` : '',
       receipt.snr != null ? `SNR ${receipt.snr}` : '',
       receipt.duration != null ? `${receipt.duration} ms` : '',
+      distanceText ? `${distanceSource === 'observer-span' ? 'Span' : 'Path'} ${distanceText}` : '',
     ]
       .filter(Boolean)
       .join(' · ');
@@ -1427,6 +1452,7 @@ function renderReceipts(session) {
         </div>
       </div>
       <div class="receipt-path">${pathMarkup}</div>
+      ${distanceMarkup}
     `;
     ui.receipts.appendChild(card);
   }
@@ -1468,7 +1494,7 @@ function renderReceiptTimeline(session) {
     row.className = 'timeline-row';
     row.innerHTML = `
       <div class="timeline-copy">
-        <strong>${receipt.observerLabel}</strong>
+        <strong>${escapeHtml(receipt.observerLabel)}</strong>
         <span>${delta === 0 ? `First receipt · ${formatTime(receipt.firstSeenAt)}` : `+${formatElapsed(delta)} · ${formatTime(receipt.firstSeenAt)}`}</span>
       </div>
       <div class="timeline-track">
@@ -1666,6 +1692,7 @@ function buildDrawerContent() {
                 ${drawerStat('Signal Quality', signal.value)}
                 ${drawerStat('Spread', latency.value)}
                 ${drawerStat('Observer Reports', String(receipts.length))}
+                ${drawerStat('Longest Packet', session?.longestPacketDistanceText || '--')}
                 ${drawerStat('Sender', session?.sender || 'Pending')}
               </div>
             </section>
@@ -1731,6 +1758,7 @@ function buildDrawerContent() {
               ${drawerStat('RSSI', receipt.rssi != null ? String(receipt.rssi) : 'n/a')}
               ${drawerStat('SNR', receipt.snr != null ? String(receipt.snr) : 'n/a')}
               ${drawerStat('Duration', receipt.duration != null ? `${receipt.duration} ms` : 'n/a')}
+              ${drawerStat('Distance', receipt.displayDistanceText || receipt.pathDistanceText || 'n/a')}
               ${drawerStat('Packets', String(receipt.count))}
             </div>
           </section>
@@ -1825,6 +1853,9 @@ function render() {
     ui.healthPercent.innerHTML = '<span class="score-num">0</span><span class="score-unit">%</span>';
     ui.observedCount.textContent = '0 / 0';
     ui.repeaterCount.textContent = '0';
+    if (ui.longestPacketDistance) {
+      ui.longestPacketDistance.textContent = '--';
+    }
     ui.senderName.textContent = 'Pending';
     ui.channelName.textContent = channelLabel;
     ui.messagePreview.textContent = `Waiting for your ${channelLabel} message.`;
@@ -1857,6 +1888,18 @@ function render() {
   ui.healthPercent.innerHTML = `<span class="score-num">${session.healthPercent}</span><span class="score-unit">%</span>`;
   ui.observedCount.textContent = `${session.observedCount} / ${session.expectedCount}`;
   ui.repeaterCount.textContent = String(session.repeaterCount || 0);
+  if (ui.longestPacketDistance) {
+    const distanceText = session.longestPacketDistanceText || '--';
+    ui.longestPacketDistance.textContent = session.longestPacketDistanceSource === 'observer-span'
+      ? `${distanceText} span`
+      : distanceText;
+    if (session.longestPacketDistancePair) {
+      ui.longestPacketDistance.title =
+        `${session.longestPacketDistancePair.fromLabel} to ${session.longestPacketDistancePair.toLabel}`;
+    } else {
+      ui.longestPacketDistance.removeAttribute('title');
+    }
+  }
   ui.senderName.textContent = session.sender || 'Pending';
   ui.channelName.textContent = session.channelName ? `#${session.channelName}` : channelLabel;
   ui.messagePreview.textContent = session.messageBody || `Waiting for your ${channelLabel} message.`;

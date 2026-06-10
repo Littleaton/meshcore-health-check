@@ -79,7 +79,7 @@ test('GET /api/bootstrap returns site and channel configuration', async () => {
 
   const payload = await response.json();
   assert.equal(payload.site.title, 'Boston MeshCore Observer Coverage');
-  assert.equal(payload.site.version, '1.3.2');
+  assert.equal(payload.site.version, '1.3.3');
   assert.equal(payload.testChannel.name, 'health-check');
   assert.equal(payload.testChannel.hash, '99');
   assert.equal(payload.turnstile.enabled, false);
@@ -119,6 +119,7 @@ test('GET /share/:sessionId returns the dashboard shell', async () => {
   assert.equal(response.status, 200);
 
   const html = await response.text();
+  assert.equal(response.headers.get('cache-control'), 'no-store');
   assert.match(html, /Observer coverage someone shared with you\./);
   assert.match(html, /Run Your Own Check/);
 });
@@ -143,6 +144,7 @@ test('POST /api/sessions creates a session and GET returns it', async () => {
 
   const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
   assert.equal(sessionResponse.status, 200);
+  assert.equal(sessionResponse.headers.get('cache-control'), 'no-store');
 
   const session = await sessionResponse.json();
   assert.equal(session.id, created.id);
@@ -269,6 +271,228 @@ test('fixture packet ingest matches sessions for 3-byte path hashes', async () =
   assert.equal(session.repeaterCount, 3);
   assert.deepEqual(session.receipts[0].path.slice(0, 3), ['3FA002', '860CCA', 'E0EED9']);
   assert.equal(session.receipts[0].path.at(-1), 'AF07FC');
+});
+
+test('packet path distance is estimated from located observer hops', async () => {
+  const pathObservers = [
+    {
+      key: '3FA0020000000000000000000000000000000000000000000000000000000000',
+      name: 'Path Hop One',
+      lat: 1,
+      lon: 0,
+    },
+    {
+      key: '860CCA0000000000000000000000000000000000000000000000000000000000',
+      name: 'Path Hop Two',
+      lat: 1,
+      lon: 1,
+    },
+    {
+      key: 'E0EED90000000000000000000000000000000000000000000000000000000000',
+      name: 'Path Hop Three',
+      lat: 1,
+      lon: 2,
+    },
+    {
+      key: 'AF07FC2005E04D08DDA921E64985E62201BF974AE0B0E35084B804229ED11A2B',
+      name: 'Terminal Observer',
+      lat: 1,
+      lon: 3,
+    },
+  ];
+
+  for (const observer of pathObservers) {
+    ingestMqttMessage(
+      `meshcore/BOS/${observer.key}/status`,
+      Buffer.from(JSON.stringify({
+        name: observer.name,
+        location: {
+          latitude: observer.lat,
+          longitude: observer.lon,
+        },
+      })),
+    );
+  }
+
+  const createResponse = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  const message = `distance path ${created.code}`;
+  const envelope = buildGroupTextEnvelope({
+    secretHex: process.env.TEST_CHANNEL_SECRET,
+    sender: 'Distance Tester',
+    message,
+    messageHash: '8899AABBCCDDEEFF',
+    timestamp: 1760000050,
+    path: ['3FA002', '860CCA', 'E0EED9'],
+  });
+
+  ingestMqttMessage(
+    `meshcore/BOS/${pathObservers[3].key}/packets`,
+    Buffer.from(JSON.stringify(envelope)),
+  );
+
+  const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
+  assert.equal(sessionResponse.status, 200);
+
+  const session = await sessionResponse.json();
+  const receipt = session.receipts[0];
+  assert.equal(session.distanceUnit, 'mi');
+  assert.equal(receipt.pathDistanceSegments.length, 3);
+  assert.equal(receipt.pathDistanceSegments[0].fromLabel, 'Path Hop One');
+  assert.equal(receipt.pathDistanceSegments[0].toLabel, 'Path Hop Two');
+  assert.match(receipt.pathDistanceText, / mi$/);
+  assert.equal(receipt.displayDistanceSource, 'path');
+  assert.equal(receipt.displayDistanceText, receipt.pathDistanceText);
+  assert.match(session.longestPacketDistanceText, / mi$/);
+  assert.equal(session.longestPacketDistance, receipt.pathDistance);
+  assert.ok(receipt.pathDistance > 200);
+  assert.ok(receipt.pathDistance < 210);
+});
+
+test('packet path distance estimates across unknown or unlocated path hops', async () => {
+  const locatedObservers = [
+    {
+      key: '3FA0020000000000000000000000000000000000000000000000000000000000',
+      name: 'Gap Anchor One',
+      lat: 1,
+      lon: 0,
+    },
+    {
+      key: 'AF07FC2005E04D08DDA921E64985E62201BF974AE0B0E35084B804229ED11A2B',
+      name: 'Gap Anchor Two',
+      lat: 1,
+      lon: 3,
+    },
+  ];
+
+  for (const observer of locatedObservers) {
+    ingestMqttMessage(
+      `meshcore/BOS/${observer.key}/status`,
+      Buffer.from(JSON.stringify({
+        name: observer.name,
+        location: {
+          latitude: observer.lat,
+          longitude: observer.lon,
+        },
+      })),
+    );
+  }
+
+  const createResponse = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  const message = `gap distance ${created.code}`;
+  const envelope = buildGroupTextEnvelope({
+    secretHex: process.env.TEST_CHANNEL_SECRET,
+    sender: 'Gap Tester',
+    message,
+    messageHash: '8877665544332211',
+    timestamp: 1760000055,
+    path: ['3FA002', 'AAAAAA', 'BBBBBB'],
+  });
+
+  ingestMqttMessage(
+    `meshcore/BOS/${locatedObservers[1].key}/packets`,
+    Buffer.from(JSON.stringify(envelope)),
+  );
+
+  const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
+  assert.equal(sessionResponse.status, 200);
+
+  const session = await sessionResponse.json();
+  const receipt = session.receipts[0];
+  assert.equal(receipt.pathDistanceSegments.length, 1);
+  assert.equal(receipt.pathDistanceSegments[0].estimated, true);
+  assert.equal(receipt.pathDistanceSegments[0].skippedHopCount, 2);
+  assert.match(receipt.pathDistanceText, / mi$/);
+  assert.ok(receipt.pathDistance > 200);
+  assert.ok(receipt.pathDistance < 210);
+});
+
+test('longest packet distance falls back to observer span when path hops are unknown', async () => {
+  const observerKeys = [
+    '1111111111111111111111111111111111111111111111111111111111111111',
+    '2222222222222222222222222222222222222222222222222222222222222222',
+  ];
+
+  ingestMqttMessage(
+    `meshcore/BOS/${observerKeys[0]}/status`,
+    Buffer.from(JSON.stringify({
+      name: 'Span Observer One',
+      location: {
+        latitude: 1,
+        longitude: 0,
+      },
+    })),
+  );
+  ingestMqttMessage(
+    `meshcore/BOS/${observerKeys[1]}/status`,
+    Buffer.from(JSON.stringify({
+      name: 'Span Observer Two',
+      location: {
+        latitude: 1,
+        longitude: 3,
+      },
+    })),
+  );
+
+  const createResponse = await fetch(`${baseUrl}/api/sessions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+    },
+    body: '{}',
+  });
+
+  assert.equal(createResponse.status, 201);
+  const created = await createResponse.json();
+
+  for (const [index, observerKey] of observerKeys.entries()) {
+    const envelope = buildGroupTextEnvelope({
+      secretHex: process.env.TEST_CHANNEL_SECRET,
+      sender: 'Span Tester',
+      message: `span fallback ${created.code}`,
+      messageHash: '9988AABBCCDDEEFF',
+      timestamp: 1760000060 + index,
+      path: ['AAAA', 'BBBB', observerKey.slice(0, 4)],
+    });
+
+    ingestMqttMessage(
+      `meshcore/BOS/${observerKey}/packets`,
+      Buffer.from(JSON.stringify(envelope)),
+    );
+  }
+
+  const sessionResponse = await fetch(`${baseUrl}/api/sessions/${created.id}`);
+  assert.equal(sessionResponse.status, 200);
+
+  const session = await sessionResponse.json();
+  assert.equal(session.longestPacketDistanceSource, 'observer-span');
+  assert.equal(session.longestPacketDistancePair.fromLabel, 'Span Observer One');
+  assert.equal(session.longestPacketDistancePair.toLabel, 'Span Observer Two');
+  assert.equal(session.receipts[0].displayDistanceSource, 'observer-span');
+  assert.match(session.receipts[0].displayDistanceText, / mi$/);
+  assert.match(session.receipts[0].displayDistanceLabel, /^farthest observer:/);
+  assert.match(session.longestPacketDistanceText, / mi$/);
+  assert.ok(session.longestPacketDistance > 200);
+  assert.ok(session.longestPacketDistance < 210);
 });
 
 test('fixture packet ingest matches sessions for 2-byte path hashes', async () => {

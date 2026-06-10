@@ -1,5 +1,34 @@
 # Changes
 
+## v1.3.3
+
+- fixed retained share links so `/share/:sessionId` pages and session API
+  responses are not cached by the browser or service worker
+- changed the share button payload to share only the retained result URL so
+  paste targets do not prepend extra observer text before the link
+- added packet-path distance estimates between known observer hops and a
+  longest-packet distance metric, configurable with `DISTANCE_UNIT=mi` or `km`
+- added an observer-span fallback for the longest-packet metric when packet
+  path hops are not known observers with coordinates
+- marked path-distance segments as estimated when they bridge unknown or
+  no-coordinate hops between known observer anchors
+- added distance labels directly to each `Who saw the message` receipt card,
+  falling back to observer-span distance when per-path distance is unavailable
+- escaped untrusted observer labels in the receipt timeline and Leaflet map
+  popups to prevent CVE-2026-45323-style stored XSS from MeshCore/MQTT names
+- updated safe same-major dependency versions for Playwright and MQTT
+- updated the PWA service worker cache version and bypassed caching for dynamic
+  `/share/` and `/api/` requests
+- added API regression coverage for share/session `Cache-Control: no-store`
+  behavior
+- bumped the app version to `1.3.3`
+- reworked the documentation by shortening `README.md`, tightening `HOWTO.md`,
+  and moving the complete runtime variable reference into `ENVIRONMENT.md`
+- added clone-from-source quick-start steps and published Docker image
+  deployment instructions
+- updated contributor guidance so env changes and release work keep
+  `.env.example`, `ENVIRONMENT.md`, `HOWTO.md`, and `CHANGES.md` in sync
+
 ## v1.3.2
 
 - added rolling observer activity tracking in `data/observer-activity.json` so

@@ -4,6 +4,7 @@
 
 - added `SITE_URL` so Docker/reverse-proxy deployments can generate public
   absolute share links and social preview metadata instead of internal hostnames
+- added Dependabot checks for npm and GitHub Actions updates against `dev`
 
 ## v1.3.3
 

@@ -111,6 +111,24 @@ function envList(name) {
     .filter(Boolean);
 }
 
+function normalizeSiteUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+  try {
+    const parsed = new URL(raw);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return '';
+    }
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
+}
+
 function normalizeDistanceUnit(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return ['km', 'kilometer', 'kilometers'].includes(normalized) ? 'km' : 'mi';
@@ -308,6 +326,7 @@ const APP_DESCRIPTION = envValue(
   'APP_DESCRIPTION',
   'Generate a test code, send it to the configured channel, and watch observer coverage build in real time.',
 );
+const SITE_URL = normalizeSiteUrl(envValue('SITE_URL', ''));
 const DISTANCE_UNIT = normalizeDistanceUnit(envValue('DISTANCE_UNIT', 'mi'));
 const PWA_APP_NAME = 'Mesh Reach';
 const REPO_URL = 'https://github.com/yellowcooln/meshcore-health-check';
@@ -1272,6 +1291,9 @@ function escapeHtml(value) {
 }
 
 function requestOrigin(request) {
+  if (SITE_URL) {
+    return SITE_URL;
+  }
   const protocol = request.protocol || (request.secure ? 'https' : 'http');
   const host = request.get('host') || 'localhost';
   return `${protocol}://${host}`;

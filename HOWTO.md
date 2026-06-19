@@ -47,6 +47,7 @@ cp .env.example .env
 - leave `KNOWN_OBSERVERS` blank if the app should auto-select top recent
   observers from packet history
 - set `REGIONS_FILE` if you want region buttons above the observer selector
+- set `SITE_URL` to the public HTTPS origin when running behind a reverse proxy
 - enable Turnstile if the site is internet-facing
 - leave `LOG_LEVEL=info` unless actively troubleshooting
 
@@ -189,6 +190,8 @@ defense. Private/internal deployments can disable it.
 - Keep `data/` bind-mounted so learned observer names, observer history, and
   retained share links survive rebuilds.
 - Keep port `3090` private to your reverse proxy or internal network.
+- Set `SITE_URL` behind a reverse proxy so share links and social previews use
+  the public site URL instead of an internal Docker hostname.
 - `DASH_BROKER_HOST` affects only the dashboard label shown to users.
 - `OBSERVER_HASH_DISPLAY_BYTES` affects only observer prefix display.
 - `OBSERVER_RETENTION_SECONDS=0` disables stale-observer pruning.

@@ -1,5 +1,10 @@
 # Changes
 
+## v1.3.4
+
+- added `SITE_URL` so Docker/reverse-proxy deployments can generate public
+  absolute share links and social preview metadata instead of internal hostnames
+
 ## v1.3.3
 
 - fixed retained share links so `/share/:sessionId` pages and session API

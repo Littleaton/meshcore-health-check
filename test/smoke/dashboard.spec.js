@@ -117,7 +117,7 @@ test('escapes untrusted observer labels in timeline and map popups', async ({ pa
           eyebrow: 'Boston MeshCore Observer Coverage',
           headline: 'Check your mesh reach.',
           description: 'Generate a test code, send it to the configured channel, and watch observer coverage build in real time.',
-          version: '1.3.3',
+          version: '1.3.4',
           repoUrl: 'https://github.com/yellowcooln/meshcore-health-check',
           changesUrl: 'https://github.com/yellowcooln/meshcore-health-check/blob/main/CHANGES.md',
         },

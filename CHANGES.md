@@ -5,6 +5,12 @@
 - added `SITE_URL` so Docker/reverse-proxy deployments can generate public
   absolute share links and social preview metadata instead of internal hostnames
 - added Dependabot checks for npm and GitHub Actions updates against `dev`
+- updated production dependencies: `dotenv` to `17.4.2` and Express to `5.2.1`
+- updated the Express catch-all route for Express 5 route parsing compatibility
+- updated browser test tooling with `@playwright/test` `1.61.0`
+- updated GitHub Actions dependencies: `actions/checkout` to `v7`,
+  `actions/setup-node` to `v6`, `docker/setup-buildx-action` to `v4`,
+  `docker/login-action` to `v4`, and `docker/metadata-action` to `v6`
 
 ## v1.3.3
 

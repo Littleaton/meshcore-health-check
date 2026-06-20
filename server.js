@@ -3005,7 +3005,7 @@ app.get('/share/:sessionId', (request, response) => {
   sendShare(request, response);
 });
 
-app.get('*', (request, response) => {
+app.get(/.*/, (request, response) => {
   if (TURNSTILE_ENABLED && !hasTurnstileAccess(request)) {
     response.redirect('/');
     return;

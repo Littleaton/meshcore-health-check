@@ -192,6 +192,9 @@ defense. Private/internal deployments can disable it.
 - Keep port `3090` private to your reverse proxy or internal network.
 - Set `SITE_URL` behind a reverse proxy so share links and social previews use
   the public site URL instead of an internal Docker hostname.
+- Set `CORESCOPE_URL` to a CoreScope root such as
+  `https://analyzer.newenglandme.sh` to open matched message hashes in
+  CoreScope.
 - `DASH_BROKER_HOST` affects only the dashboard label shown to users.
 - `OBSERVER_HASH_DISPLAY_BYTES` affects only observer prefix display.
 - `OBSERVER_RETENTION_SECONDS=0` disables stale-observer pruning.

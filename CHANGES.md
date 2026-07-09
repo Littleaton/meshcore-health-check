@@ -1,5 +1,23 @@
 # Changes
 
+## v1.3.5
+
+- improved observer name learning from MQTT status metadata by using `origin`
+  as a fallback name when explicit name fields are absent
+- improved decoded MeshCore advert handling so advert names and coordinates are
+  saved against the decoded public key, even when another observer received the
+  packet
+- allowed high-quality decoded advert names to refresh stale saved observer
+  names without renaming the MQTT receiver observer
+- made dynamic top-observer defaults honor observer retention so stale high-volume
+  observers are not selected after they drop out of the dashboard window
+- added optional `CORESCOPE_URL` support so matched message hashes can open
+  CoreScope `#/packets/<hash>` routes
+- added regression coverage with a synthetic Worcester observer advert for
+  decoded advert name/location learning and receiver-topic safety
+- updated dependency maintenance versions: `mqtt` to `5.15.2`,
+  `@playwright/test` to `1.61.1`, and `docker/build-push-action` to `v7`
+
 ## v1.3.4
 
 - added `SITE_URL` so Docker/reverse-proxy deployments can generate public

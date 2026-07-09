@@ -327,6 +327,7 @@ const APP_DESCRIPTION = envValue(
   'Generate a test code, send it to the configured channel, and watch observer coverage build in real time.',
 );
 const SITE_URL = normalizeSiteUrl(envValue('SITE_URL', ''));
+const CORESCOPE_URL = normalizeSiteUrl(envValue('CORESCOPE_URL', ''));
 const DISTANCE_UNIT = normalizeDistanceUnit(envValue('DISTANCE_UNIT', 'mi'));
 const PWA_APP_NAME = 'Mesh Reach';
 const REPO_URL = 'https://github.com/yellowcooln/meshcore-health-check';
@@ -1557,6 +1558,13 @@ function extractDeviceName(obj, topic = '') {
     }
   }
 
+  if (String(topic || '').endsWith('/status')) {
+    const origin = obj.origin;
+    if (typeof origin === 'string' && origin.trim()) {
+      return origin.trim();
+    }
+  }
+
   return '';
 }
 
@@ -1813,6 +1821,10 @@ function topObserverKeys(now = Date.now()) {
   const ranked = [];
 
   for (const [key, entry] of observerActivityHistory.entries()) {
+    const lastPacketAt = Math.max(0, Number(entry?.lastPacketAt || 0));
+    if (OBSERVER_RETENTION_MS > 0 && (!lastPacketAt || now - lastPacketAt > OBSERVER_RETENTION_MS)) {
+      continue;
+    }
     let total = 0;
     for (const dayKey of dayKeys) {
       total += Math.max(0, Math.floor(Number(entry?.days?.[dayKey] || 0)));
@@ -1823,7 +1835,7 @@ function topObserverKeys(now = Date.now()) {
     ranked.push({
       key,
       total,
-      lastPacketAt: Number(entry?.lastPacketAt || 0),
+      lastPacketAt,
       label: observerDisplayLabelForKey(key),
     });
   }
@@ -2332,6 +2344,7 @@ function snapshotPayload() {
       description: APP_DESCRIPTION,
       repoUrl: REPO_URL,
       changesUrl: `${REPO_URL}/blob/main/CHANGES.md`,
+      coreScopeUrl: CORESCOPE_URL,
       externalLinkUrl: EXTERNAL_LINK_URL,
       externalLinkLabel: EXTERNAL_LINK_LABEL,
     },
@@ -2425,7 +2438,7 @@ function noteObserverPacketActivity(observerKey, timestamp = Date.now()) {
   return changed;
 }
 
-function updateObserverName(observerKey, name) {
+function updateObserverName(observerKey, name, options = {}) {
   const normalizedKey = normalizeKey(observerKey);
   const cleanName = String(name || '').trim();
   if (!normalizedKey || !cleanName) {
@@ -2437,7 +2450,12 @@ function updateObserverName(observerKey, name) {
   if (!observer) {
     return false;
   }
-  if (pinnedObserverNameKeys.has(normalizedKey) && previous && previous !== cleanName) {
+  if (
+    pinnedObserverNameKeys.has(normalizedKey) &&
+    previous &&
+    previous !== cleanName &&
+    !options.allowPinnedOverride
+  ) {
     observer.name = previous;
     return false;
   }
@@ -2688,9 +2706,7 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
     ? packet.payload.decoded
     : null;
   const decodedPayloadObserverKey = normalizeKey(decodedPayload?.publicKey || '');
-  const shouldLearnPacketMetadata = Boolean(
-    decodedPayloadObserverKey && decodedPayloadObserverKey === observer.key,
-  );
+  const shouldLearnPacketMetadata = Boolean(decodedPayloadObserverKey);
   let metadataChanged = false;
   const decodedAppData = shouldLearnPacketMetadata
     && decodedPayload?.appData
@@ -2701,8 +2717,16 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
     if (!metadataSource) {
       continue;
     }
+    const extractedName = extractDeviceName(metadataSource, topic);
+    if (extractedName) {
+      metadataChanged = updateObserverName(
+        decodedPayloadObserverKey,
+        extractedName,
+        { allowPinnedOverride: true },
+      ) || metadataChanged;
+    }
     metadataChanged = updateObserverLocation(
-      observer.key,
+      decodedPayloadObserverKey,
       extractObserverLocation(metadataSource),
     ) || metadataChanged;
   }

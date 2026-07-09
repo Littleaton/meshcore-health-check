@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { createRequire } from 'node:module';
+
 import { buildGroupTextEnvelope } from './support/build-meshcore-fixture.js';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -23,13 +25,48 @@ process.env.LOG_LEVEL = 'info';
 process.env.OBSERVERS_FILE = observerFile;
 process.env.OBSERVER_ACTIVITY_FILE = observerActivityFile;
 process.env.RESULTS_FILE = resultsFile;
-process.env.APP_TITLE = 'Boston MeshCore Observer Coverage';
-process.env.APP_EYEBROW = 'Boston MeshCore Observer Coverage';
-process.env.DASH_BROKER_HOST = 'mqttmc01.bostonme.sh:443';
+process.env.APP_TITLE = 'MeshCore Observer Coverage';
+process.env.APP_EYEBROW = 'MeshCore Observer Coverage';
+process.env.APP_DESCRIPTION = 'Generate a test code, send it to the configured channel, and watch observer coverage build in real time.';
+process.env.DASH_BROKER_HOST = 'mqtt.example.test:443';
+process.env.CORESCOPE_URL = 'https://analyzer.example.test';
 process.env.TEST_CHANNEL_NAME = 'health-check';
 process.env.TEST_CHANNEL_SECRET = 'E6D973AAC5101145AD3A3F3A0B3D52EB';
 process.env.OBSERVER_RETENTION_SECONDS = '14400';
 process.env.OBSERVER_HASH_DISPLAY_BYTES = '1';
+
+const FAKE_WORCESTER_OBSERVER_KEY = 'DEC0DE0000000000000000000000000000000000000000000000000000000001';
+const FAKE_WORCESTER_ADVERT_HEX = 'feedfacecafebeef';
+const require = createRequire(import.meta.url);
+const { MeshCorePacketDecoder } = require('@michaelhart/meshcore-decoder');
+const originalDecodeMeshCorePacket = MeshCorePacketDecoder.decode;
+MeshCorePacketDecoder.decode = function decodeWithSyntheticAdvert(hex, options) {
+  if (String(hex || '').toLowerCase() === FAKE_WORCESTER_ADVERT_HEX) {
+    return {
+      messageHash: 'FA1ECAFE',
+      routeType: 1,
+      payloadType: 4,
+      pathLength: 0,
+      pathHashSize: 1,
+      path: [],
+      payload: {
+        decoded: {
+          type: 4,
+          isValid: true,
+          publicKey: FAKE_WORCESTER_OBSERVER_KEY,
+          appData: {
+            hasLocation: true,
+            hasName: true,
+            location: { latitude: 42.2626, longitude: -71.8023 },
+            name: 'Worcester Test Observer',
+          },
+        },
+      },
+      isValid: true,
+    };
+  }
+  return originalDecodeMeshCorePacket.call(this, hex, options);
+};
 
 const serverModule = await import(
   `${pathToFileURL(path.join(REPO_DIR, 'server.js')).href}?test=${Date.now()}`
@@ -78,12 +115,13 @@ test('GET /api/bootstrap returns site and channel configuration', async () => {
   assert.equal(response.status, 200);
 
   const payload = await response.json();
-  assert.equal(payload.site.title, 'Boston MeshCore Observer Coverage');
-  assert.equal(payload.site.version, '1.3.4');
+  assert.equal(payload.site.title, 'MeshCore Observer Coverage');
+  assert.equal(payload.site.version, '1.3.5');
+  assert.equal(payload.site.coreScopeUrl, 'https://analyzer.example.test');
   assert.equal(payload.testChannel.name, 'health-check');
   assert.equal(payload.testChannel.hash, '99');
   assert.equal(payload.turnstile.enabled, false);
-  assert.equal(payload.mqtt.broker, 'mqttmc01.bostonme.sh:443');
+  assert.equal(payload.mqtt.broker, 'mqtt.example.test:443');
   assert.equal(payload.results.retentionSeconds, 604800);
   assert.equal(payload.observerStats.hashDisplayBytes, 1);
 });
@@ -95,9 +133,9 @@ test('GET /app includes server-rendered social meta tags', async () => {
   assert.equal(response.status, 200);
 
   const html = await response.text();
-  assert.match(html, /<meta property="og:title" content="Boston MeshCore Observer Coverage">/);
+  assert.match(html, /<meta property="og:title" content="MeshCore Observer Coverage">/);
   assert.match(html, /<meta property="og:image" content="http:\/\/127\.0\.0\.1:\d+\/logo\.png">/);
-  assert.match(html, /<meta name="twitter:title" content="Boston MeshCore Observer Coverage">/);
+  assert.match(html, /<meta name="twitter:title" content="MeshCore Observer Coverage">/);
 });
 
 test('GET /manifest.webmanifest returns installable app metadata', async () => {
@@ -582,6 +620,30 @@ test('observer metadata learns and exposes saved coordinates from mqtt', async (
   assert.equal(observer?.hasLocation, true);
 });
 
+test('observer status metadata falls back to origin for observer name', async () => {
+  const observerKey = 'ABCDEF11223344556677889900AABBCCDDEEFF00112233445566778899AABBCC';
+
+  ingestMqttMessage(
+    `meshcore/BOS/${observerKey}/status`,
+    Buffer.from(JSON.stringify({
+      origin: 'BUR-FOX-HILL',
+      location: {
+        latitude: 42.3601,
+        longitude: -71.0589,
+      },
+    })),
+  );
+
+  const response = await fetch(`${baseUrl}/api/bootstrap`);
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  const observer = payload.observerDirectory.find((entry) => entry.key === observerKey);
+
+  assert.equal(observer?.name, 'BUR-FOX-HILL');
+  assert.equal(observer?.lat, 42.3601);
+  assert.equal(observer?.lon, -71.0589);
+});
+
 test('observer metadata does not rename other observers through origin_id or origin fields', async () => {
   const observerKey = '11223344556677889900AABBCCDDEEFF00112233445566778899AABBCCDDEEFF';
   const otherKey = 'FFEEDDCCBBAA0099887766554433221100FFEEDDCCBBAA009988776655443322';
@@ -617,8 +679,8 @@ test('observer metadata does not rename other observers through origin_id or ori
   assert.equal(otherObserver?.name, 'Known Observer Name');
 });
 
-test('observer metadata learns coordinates from decoded mesh packets without renaming the observer', async () => {
-  const observerKey = '6FD3B0588203D942A89EFAF174717C7A7E75FCFED0DA41A2F90764B85BB7B860';
+test('observer metadata learns names and coordinates from decoded mesh packets', async () => {
+  const observerKey = FAKE_WORCESTER_OBSERVER_KEY;
 
   ingestMqttMessage(
     `meshcore/BOS/${observerKey}/status`,
@@ -629,7 +691,7 @@ test('observer metadata learns coordinates from decoded mesh packets without ren
 
   ingestMqttMessage(
     `meshcore/BOS/${observerKey}/packets`,
-    Buffer.from('1101266fd3b0588203d942a89efaf174717c7a7e75fcfed0da41a2f90764b85bb7b860a461de694185c5508ff3e8ccb471cc5b9dac8409e92ad370c0887910bbb6205ad1d5529a87cfc33b912cc755896c212a446fb40f46ab551f55a9cd5c7f830afc2bdd400492e3088502450abcfb59432d576f726b2d5265706561746572'),
+    Buffer.from(FAKE_WORCESTER_ADVERT_HEX),
   );
 
   const response = await fetch(`${baseUrl}/api/bootstrap`);
@@ -637,9 +699,9 @@ test('observer metadata learns coordinates from decoded mesh packets without ren
   const payload = await response.json();
   const observer = payload.observerDirectory.find((entry) => entry.key === observerKey);
 
-  assert.equal(observer?.name, 'Saved Observer Name');
-  assert.equal(observer?.lat, 42.272995);
-  assert.equal(observer?.lon, -71.562683);
+  assert.equal(observer?.name, 'Worcester Test Observer');
+  assert.equal(observer?.lat, 42.2626);
+  assert.equal(observer?.lon, -71.8023);
   assert.equal(observer?.hasLocation, true);
 });
 
@@ -648,7 +710,7 @@ test('decoded mesh packet metadata does not attach other nodes to the mqtt obser
 
   ingestMqttMessage(
     `meshcore/BOS/${observerKey}/packets`,
-    Buffer.from('1101266fd3b0588203d942a89efaf174717c7a7e75fcfed0da41a2f90764b85bb7b860a461de694185c5508ff3e8ccb471cc5b9dac8409e92ad370c0887910bbb6205ad1d5529a87cfc33b912cc755896c212a446fb40f46ab551f55a9cd5c7f830afc2bdd400492e3088502450abcfb59432d576f726b2d5265706561746572'),
+    Buffer.from(FAKE_WORCESTER_ADVERT_HEX),
   );
 
   const response = await fetch(`${baseUrl}/api/bootstrap`);
@@ -660,6 +722,21 @@ test('decoded mesh packet metadata does not attach other nodes to the mqtt obser
   assert.equal(observer?.lat, null);
   assert.equal(observer?.lon, null);
   assert.equal(observer?.hasLocation, false);
+
+  ingestMqttMessage(
+    `meshcore/BOS/${FAKE_WORCESTER_OBSERVER_KEY}/status`,
+    Buffer.from('{}'),
+  );
+
+  const refreshedResponse = await fetch(`${baseUrl}/api/bootstrap`);
+  assert.equal(refreshedResponse.status, 200);
+  const refreshedPayload = await refreshedResponse.json();
+  const decodedObserver = refreshedPayload.observerDirectory.find(
+    (entry) => entry.key === FAKE_WORCESTER_OBSERVER_KEY,
+  );
+  assert.equal(decodedObserver?.name, 'Worcester Test Observer');
+  assert.equal(decodedObserver?.lat, 42.2626);
+  assert.equal(decodedObserver?.lon, -71.8023);
 });
 
 test('observer directory excludes observers older than the retention window', async () => {

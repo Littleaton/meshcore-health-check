@@ -706,6 +706,41 @@ function retentionNote() {
   return `Shared links are kept for ${formatElapsed(seconds * 1000)}.`;
 }
 
+function cleanConfigValue(value) {
+  const text = String(value || '').trim();
+  if (!text || /^\{\{.*\}\}$/.test(text)) {
+    return '';
+  }
+  return text;
+}
+
+function normalizeCoreScopeBaseUrl(value) {
+  const raw = cleanConfigValue(value);
+  if (!raw) {
+    return '';
+  }
+  const base = raw.replace(/#\/?$/, '').replace(/\/+$/, '');
+  return /^https?:\/\//i.test(base) ? base : '';
+}
+
+function buildCoreScopePacketLink(hash) {
+  const base = normalizeCoreScopeBaseUrl(state.snapshot?.site?.coreScopeUrl);
+  const value = String(hash || '').trim();
+  if (!base || !value) {
+    return '';
+  }
+  const normalizedValue = /^[0-9a-f]+$/i.test(value) ? value.toLowerCase() : value;
+  return `${base}/#/packets/${encodeURIComponent(normalizedValue)}`;
+}
+
+function packetHashLink(hash) {
+  const coreScopeUrl = buildCoreScopePacketLink(hash);
+  if (coreScopeUrl) {
+    return coreScopeUrl;
+  }
+  return `${ANALYZER_BASE_URL}${encodeURIComponent(hash)}`;
+}
+
 function setSessionHash(hash) {
   const value = String(hash || '').trim();
   if (!value) {
@@ -718,7 +753,7 @@ function setSessionHash(hash) {
   }
 
   ui.sessionHash.textContent = value;
-  ui.sessionHash.href = `${ANALYZER_BASE_URL}${encodeURIComponent(value)}`;
+  ui.sessionHash.href = packetHashLink(value);
   ui.sessionHash.classList.remove('pending');
   ui.sessionHash.setAttribute('target', '_blank');
   ui.sessionHash.setAttribute('rel', 'noopener noreferrer');

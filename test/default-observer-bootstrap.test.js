@@ -334,12 +334,12 @@ test('bootstrap falls back to the top recent observers when KNOWN_OBSERVERS is b
     version: 1,
     observers: Object.fromEntries(observerKeys.map((key, index) => [key, {
       days: index === 10
-        ? { [dayKey(8)]: 999 }
+        ? { [dayKey(0)]: 999 }
         : {
             [dayKey(0)]: 200 - (index * 10),
             [dayKey(1)]: 2,
           },
-      lastPacketAt: Date.now() - (index * 1000),
+      lastPacketAt: Date.now() - (index === 10 ? 259200000 : index * 1000),
     }])),
   }, null, 2), 'utf8');
   fs.writeFileSync(resultsFile, '{\n  "version": 1,\n  "sessions": []\n}\n', 'utf8');
@@ -356,6 +356,7 @@ test('bootstrap falls back to the top recent observers when KNOWN_OBSERVERS is b
     KNOWN_OBSERVERS: process.env.KNOWN_OBSERVERS,
     OBSERVER_TOP_WINDOW_DAYS: process.env.OBSERVER_TOP_WINDOW_DAYS,
     OBSERVER_TOP_COUNT: process.env.OBSERVER_TOP_COUNT,
+    OBSERVER_RETENTION_SECONDS: process.env.OBSERVER_RETENTION_SECONDS,
   };
 
   process.env.MESH_HEALTH_DISABLE_RUNTIME = 'true';
@@ -369,6 +370,7 @@ test('bootstrap falls back to the top recent observers when KNOWN_OBSERVERS is b
   process.env.KNOWN_OBSERVERS = '';
   process.env.OBSERVER_TOP_WINDOW_DAYS = '7';
   process.env.OBSERVER_TOP_COUNT = '10';
+  process.env.OBSERVER_RETENTION_SECONDS = '172800';
 
   const serverModule = await import(
     `${pathToFileURL(path.join(REPO_DIR, 'server.js')).href}?top-observers-test=${Date.now()}`
@@ -400,6 +402,7 @@ test('bootstrap falls back to the top recent observers when KNOWN_OBSERVERS is b
     assert.equal(payload.defaultObservers.length, 10);
     assert.equal(payload.defaultObservers[0]?.label, 'Tracked Observer 1');
     assert.equal(payload.defaultObservers.at(-1)?.label, 'Tracked Observer 10');
+    assert.equal(payload.defaultObservers.some((entry) => entry.label === 'Tracked Observer 11'), false);
     assert.equal(payload.observerStats.topWindowDays, 7);
     assert.equal(payload.observerStats.topCount, 10);
   } finally {

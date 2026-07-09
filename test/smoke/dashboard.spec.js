@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test';
 test('dashboard loads and creates a session code', async ({ page }) => {
   await page.goto('/app');
 
-  await expect(page).toHaveTitle(/Boston MeshCore Observer Coverage/i);
-  await expect(page.getByText('Boston MeshCore Observer Coverage')).toBeVisible();
+  await expect(page).toHaveTitle(/MeshCore Observer Coverage/i);
+  await expect(page.getByText('MeshCore Observer Coverage')).toBeVisible();
   await expect(page.getByRole('button', { name: 'New Code' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'yellowcooln/meshcore-health-check' })).toBeVisible();
   await expect(page.locator('#session-code')).toContainText('MHC-', { timeout: 10000 });
@@ -113,11 +113,12 @@ test('escapes untrusted observer labels in timeline and map popups', async ({ pa
       contentType: 'application/json',
       body: JSON.stringify({
         site: {
-          title: 'Boston MeshCore Observer Coverage',
-          eyebrow: 'Boston MeshCore Observer Coverage',
+          title: 'MeshCore Observer Coverage',
+          eyebrow: 'MeshCore Observer Coverage',
           headline: 'Check your mesh reach.',
           description: 'Generate a test code, send it to the configured channel, and watch observer coverage build in real time.',
-          version: '1.3.4',
+          version: '1.3.5',
+          coreScopeUrl: 'https://analyzer.example.test',
           repoUrl: 'https://github.com/yellowcooln/meshcore-health-check',
           changesUrl: 'https://github.com/yellowcooln/meshcore-health-check/blob/main/CHANGES.md',
         },
@@ -189,6 +190,10 @@ test('escapes untrusted observer labels in timeline and map popups', async ({ pa
 
   await page.goto('/app');
   await expect(page.locator('#session-code')).toHaveText('MHC-XSS123');
+  await expect(page.locator('#session-hash')).toHaveAttribute(
+    'href',
+    'https://analyzer.example.test/#/packets/abcdef1234567890',
+  );
   await expect(page.locator('#receipt-timeline')).toContainText('Evil Observer');
   await expect(page.locator('#receipt-timeline img')).toHaveCount(0);
   await expect(page.locator('#receipts img')).toHaveCount(0);

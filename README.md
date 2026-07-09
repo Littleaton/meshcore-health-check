@@ -88,6 +88,8 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
   `RESULT_RETENTION_SECONDS` expires.
 - `DASH_BROKER_HOST` changes only the broker label shown in the UI. It does not
   change the actual MQTT connection.
+- `CORESCOPE_URL` changes the matched message-hash link to CoreScope
+  `#/packets/<hash>` routes.
 - `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` controls packet distance labels.
 
 ## Validation

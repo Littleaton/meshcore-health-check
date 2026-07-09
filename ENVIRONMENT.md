@@ -14,6 +14,7 @@ in source files.
 | `APP_HEADLINE` | `Check your mesh reach.` | Hero headline on the dashboard. |
 | `APP_DESCRIPTION` | Generated coverage description | Site description and social metadata. |
 | `SITE_URL` | blank | Public site URL used for generated absolute share links and social metadata. Set this when running behind a reverse proxy. |
+| `CORESCOPE_URL` | blank | Optional CoreScope root URL. When set, matched message hashes link to `#/packets/<hash>`. |
 | `EXTERNAL_LINK_URL` | blank | Optional hero/control-center external link URL. |
 | `EXTERNAL_LINK_LABEL` | blank | Label for the optional external link. |
 | `LOG_LEVEL` | `info` | Use `debug` only while troubleshooting ingest or decode behavior. |

@@ -5,8 +5,13 @@
 - made Default Set restore configured fixed observer keys and clear temporary
   region filters when fixed defaults are active; activity-ranked defaults retain
   their selected-region behavior
-- updated dotenv to 18.0.5, ws to 8.22.0 and transitive ip-address to 10.7.3
+- updated Express to 5.3.0 and transitive proxy-addr to 2.0.8, including
+  fixes to proxy trust handling and HTTP response headers
+- updated dotenv to 18.0.7, ws to 8.22.0 and transitive ip-address to 10.7.3
   for environment parsing, WebSocket fixes and IP address validation fixes
+- updated Playwright browser testing to 1.64.0
+- moved Docker image publishing from a self-hosted runner to GitHub-hosted
+  Ubuntu runners, retaining Docker Hub tags, amd64 builds and build caching
 - added `BROWSER_LOCATION_ENABLED=true` to retain opt-in browser location by
   default; disabling it hides location/approximate controls and denies browser
   geolocation while preserving map-center, radius and manual observer choices

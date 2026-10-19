@@ -2415,7 +2415,7 @@ function snapshotPayload() {
     },
     map: {
       cartoBasemapKey: CARTO_BASEMAP_KEY,
-      darkBasemapAvailable: Boolean(CARTO_BASEMAP_KEY),
+      darkBasemapAvailable: true,
     },
     turnstile: {
       enabled: TURNSTILE_ENABLED,
@@ -2947,14 +2947,15 @@ app.use((request, response, next) => {
     [
       "default-src 'self'",
       "base-uri 'self'",
-      "connect-src 'self' ws: wss:",
+      "connect-src 'self' ws: wss: https://tiles.openfreemap.org",
       "form-action 'self'",
       "frame-ancestors 'none'",
       "frame-src https://challenges.cloudflare.com",
-      "img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
+      "img-src 'self' data: blob: https://tiles.openfreemap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
       "object-src 'none'",
       "script-src 'self' https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline'",
+      "worker-src 'self'",
     ].join('; '),
   );
   if (request.secure) {
@@ -2997,6 +2998,8 @@ app.get('/manifest.webmanifest', (request, response) => {
   }));
 });
 app.use('/vendor/leaflet', express.static(path.join(APP_DIR, 'node_modules/leaflet/dist'), { index: false }));
+app.use('/vendor/maplibre', express.static(path.join(APP_DIR, 'node_modules/maplibre-gl/dist'), { index: false }));
+app.use('/vendor/maplibre-leaflet', express.static(path.join(APP_DIR, 'node_modules/@maplibre/maplibre-gl-leaflet'), { index: false }));
 app.use(express.static(path.join(APP_DIR, 'public'), { index: false }));
 
 app.get('/api/bootstrap', (request, response) => {

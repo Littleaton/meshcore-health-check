@@ -2,6 +2,11 @@
 
 ## v1.4.0
 
+- added keyless OpenFreeMap dark coverage maps with locally served MapLibre and
+  full provider/data attribution; retained optional configured CARTO Dark Matter
+  and OpenStreetMap light maps, with raster fallback when vector rendering fails
+- included the local CSP renderer and worker in PWA upgrades without caching
+  external map resources; updated privacy and operator guidance for OpenFreeMap
 - made Default Set restore configured fixed observer keys and clear temporary
   region filters when fixed defaults are active; activity-ranked defaults retain
   their selected-region behavior

@@ -829,25 +829,108 @@ test('dark coverage map sends the configured CARTO API key', async ({ page }) =>
   expect(cartoRequests[0]).toContain('key=test-carto-key');
 });
 
-test('dark dashboard falls back to OpenStreetMap without a CARTO key', async ({ page }) => {
+test('keyless dark map renders with real MapLibre and releases canvases on theme changes', async ({ page }) => {
   const target = mapObserver(MAP_TEST_KEYS.target, 'Target Observer', 42.3601, -71.0589, 'BOS');
-  const cartoRequests = [];
-  const osmRequests = [];
-  await page.route('https://*.basemaps.cartocdn.com/**', async (route) => {
-    cartoRequests.push(route.request().url());
-    await route.abort();
+  const errors = [];
+  const violations = [];
+  const workers = [];
+  page.on('worker', (worker) => workers.push(worker.url()));
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.addInitScript(() => {
+    window.cspViolations = [];
+    document.addEventListener('securitypolicyviolation', (event) => window.cspViolations.push(event.violatedDirective));
   });
-  await page.route('https://*.tile.openstreetmap.org/**', async (route) => {
-    osmRequests.push(route.request().url());
-    await route.abort();
-  });
-
+  // Only the provider response is deterministic: renderer, bridge, worker and Leaflet are real.
+  await page.route('https://tiles.openfreemap.org/styles/dark', (route) => route.fulfill({ json: {
+    version: 8,
+    sources: { untrusted: { type: 'geojson', data: { type: 'FeatureCollection', features: [] },
+      attribution: '<details open onload="1" ontoggle="window.__attributionXss=true">Untrusted source attribution</details>',
+    } },
+    layers: [
+      { id: 'background', type: 'background', paint: { 'background-color': '#101820' } },
+      { id: 'empty-points', type: 'circle', source: 'untrusted' },
+    ],
+  } }));
+  await captureMap(page);
   await openMockMapSession(page, [target], [target], '');
-
-  await expect.poll(() => osmRequests.length).toBeGreaterThan(0);
-  expect(cartoRequests).toHaveLength(0);
-  await expect(page.locator('body')).toHaveAttribute('data-ui-theme', 'dark');
+  await expect(page.locator('#observer-map canvas.maplibregl-canvas')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => {
+    let loaded = false;
+    window.testMap.eachLayer((layer) => { if (layer.getMaplibreMap) loaded = layer.getMaplibreMap().loaded(); });
+    return loaded;
+  })).toBe(true);
+  expect(workers.length).toBeGreaterThan(0);
+  expect(workers.every((url) => new URL(url).pathname === '/vendor/maplibre/maplibre-gl-csp-worker.js')).toBe(true);
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenFreeMap');
+  await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenMapTiles');
+  // The pinned renderer has a sanitizer advisory: do not instantiate its
+  // attribution/popup controls or reflect provider-supplied attribution HTML.
+  await expect(page.locator('#observer-map .maplibregl-ctrl-attrib, #observer-map details')).toHaveCount(0);
+  await expect(page.locator('.leaflet-control-attribution')).not.toContainText('Untrusted source attribution');
+  expect(await page.evaluate(() => window.__attributionXss)).toBeUndefined();
+  for (let i = 0; i < 2; i += 1) {
+    await page.locator('#ui-theme-toggle').click();
+    await expect(page.locator('#observer-map canvas')).toHaveCount(0);
+    await expect(page.locator('.leaflet-control-attribution')).not.toContainText('OpenFreeMap');
+    await page.locator('#ui-theme-toggle').click();
+    await expect(page.locator('#observer-map canvas')).toHaveCount(1);
+  }
+  await expect(page.locator('#observer-map .leaflet-marker-icon')).toHaveCount(1);
+  await page.locator('#observer-map .leaflet-marker-icon').click();
+  await expect(page.locator('.leaflet-popup')).toContainText(target.label);
+  await page.evaluate(() => { window.testMap.panBy([30, 20], { animate: false }); window.testMap.setZoom(9, { animate: false }); });
+  expect((await mappedState(page)).markers[0].popup).toContain(target.label);
+  violations.push(...await page.evaluate(() => window.cspViolations));
+  expect(violations).toEqual([]);
+  expect(errors).toEqual([]);
 });
+
+for (const failure of ['unsupported WebGL', 'bridge factory', 'renderer construction', 'provider']) {
+  test(`dark map falls back to OSM after ${failure} failure without losing Leaflet interactions`, async ({ page }) => {
+    const target = mapObserver(MAP_TEST_KEYS.target, 'Fallback Observer', 42.3601, -71.0589, 'BOS');
+    const errors = [];
+    const osmRequests = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    if (failure === 'unsupported WebGL') {
+      await page.addInitScript(() => {
+        const original = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+          return /webgl/.test(type) ? null : original.call(this, type, ...args);
+        };
+      });
+    }
+    if (failure === 'renderer construction' || failure === 'bridge factory') {
+      const asset = failure === 'renderer construction'
+        ? '**/vendor/maplibre/maplibre-gl-csp.js' : '**/vendor/maplibre-leaflet/leaflet-maplibre-gl.js';
+      await page.route(asset, async (route) => {
+        const response = await route.fetch();
+        const injection = failure === 'renderer construction'
+          ? 'maplibregl.Map = function () { throw new Error("injected renderer failure"); };'
+          : 'L.maplibreGL = function () { throw new Error("injected bridge failure"); };';
+        await route.fulfill({ response, body: `${await response.text()}\n${injection}` });
+      });
+    }
+    await page.route('https://tiles.openfreemap.org/**', (route) => route.fulfill({ status: 503, body: 'Provider unavailable' }));
+    await page.route('https://*.tile.openstreetmap.org/**', (route) => {
+      osmRequests.push(route.request().url());
+      return route.abort();
+    });
+    await captureMap(page);
+    await openMockMapSession(page, [target], [target], '');
+    await expect.poll(() => osmRequests.length).toBeGreaterThan(0);
+    await expect(page.locator('#observer-map canvas')).toHaveCount(0);
+    await expect(page.locator('#observer-map .leaflet-gl-layer')).toHaveCount(0);
+    await expect(page.locator('#observer-map .leaflet-marker-icon')).toHaveCount(1);
+    await page.locator('#observer-map .leaflet-marker-icon').click();
+    await expect(page.locator('.leaflet-popup')).toContainText(target.label);
+    await page.evaluate(() => { window.testMap.panBy([20, 10], { animate: false }); window.testMap.setZoom(8, { animate: false }); });
+    await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap');
+    await expect(page.locator('.leaflet-control-attribution')).not.toContainText('OpenFreeMap');
+    await expect(page.locator('body')).toHaveAttribute('data-ui-theme', 'dark');
+    await page.waitForTimeout(250);
+    expect(errors).toEqual([]);
+  });
+}
 
 test('escapes untrusted observer labels in timeline and map popups', async ({ page }) => {
   const maliciousLabel = '<img src=x onerror="window.__meshHealthXssHit=true">Evil Observer';

@@ -1520,16 +1520,32 @@ function ensureObserverMap() {
   return state.map.instance;
 }
 
+function openStreetMapLayer() {
+  return window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  });
+}
+
 function currentTileLayer() {
   if (!window.L) {
     return null;
   }
   const cartoBasemapKey = String(state.snapshot?.map?.cartoBasemapKey || '').trim();
-  if (state.uiTheme === 'light' || !cartoBasemapKey) {
-    return window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
+  if (state.uiTheme !== 'light' && !cartoBasemapKey && window.L.maplibreGL && window.maplibregl
+    && (typeof window.maplibregl.supported !== 'function' || window.maplibregl.supported())) {
+    window.maplibregl.setWorkerUrl('/vendor/maplibre/maplibre-gl-csp-worker.js');
+    return window.L.maplibreGL({
+      style: 'https://tiles.openfreemap.org/styles/dark',
+      attributionControl: { customAttribution:
+        '<a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> '
+        + '<a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">&copy; OpenMapTiles</a> '
+        + 'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      },
     });
+  }
+  if (state.uiTheme === 'light' || !cartoBasemapKey) {
+    return openStreetMapLayer();
   }
   const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
     + `?key=${encodeURIComponent(cartoBasemapKey)}`;
@@ -1538,6 +1554,44 @@ function currentTileLayer() {
     subdomains: 'abcd',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   });
+}
+
+function installBasemap(mapInstance) {
+  if (state.map.layer) mapInstance.removeLayer(state.map.layer);
+  state.map.layerTheme = state.uiTheme;
+  let layer;
+  const fallback = () => {
+    // A late provider error must not replace a newer theme's layer.
+    if (state.map.layer !== layer) return;
+    if (layer && mapInstance.hasLayer(layer)) mapInstance.removeLayer(layer);
+    state.map.layer = openStreetMapLayer().addTo(mapInstance);
+  };
+  try {
+    layer = currentTileLayer();
+    state.map.layer = layer;
+    if (!layer) return;
+    if (layer.getMaplibreMap) {
+      // The bridge's onRemove assumes construction succeeded. Leaflet registers
+      // its events before onAdd; remove the partial layer even if WebGL throws.
+      const onRemove = layer.onRemove;
+      layer.onRemove = function (map) {
+        if (this.getMaplibreMap()) onRemove.call(this, map);
+        else this.getContainer()?.remove();
+      };
+    }
+    layer.addTo(mapInstance);
+    const renderer = layer.getMaplibreMap?.();
+    if (renderer) {
+      const onError = () => window.setTimeout(fallback, 0);
+      renderer.on('error', onError);
+      layer.once('remove', () => renderer.off('error', onError));
+    }
+  } catch {
+    // Unsupported WebGL, missing renderer assets and provider failures must not
+    // prevent observer markers, popups, or nearby selection from rendering.
+    state.map.layer = layer;
+    fallback();
+  }
 }
 
 function markerIcon(observer) {
@@ -1563,15 +1617,7 @@ function renderObserverMap(session) {
   }
 
   if (!state.map.layer || state.map.layerTheme !== state.uiTheme) {
-    const nextLayer = currentTileLayer();
-    if (state.map.layer) {
-      mapInstance.removeLayer(state.map.layer);
-    }
-    state.map.layer = nextLayer;
-    state.map.layerTheme = state.uiTheme;
-    if (nextLayer) {
-      nextLayer.addTo(mapInstance);
-    }
+    installBasemap(mapInstance);
   }
 
   const activeKeys = new Set(locatedObservers.map((observer) => observer.key));

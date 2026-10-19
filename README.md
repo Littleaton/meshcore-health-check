@@ -114,7 +114,9 @@ At minimum, configure MQTT and the test channel in `.env`:
 - `MQTT_TOPIC`
 - `TEST_CHANNEL_NAME`
 - `TEST_CHANNEL_SECRET` or `TEST_CHANNEL_HASH`
-- `CARTO_BASEMAP_KEY` to enable CARTO Dark Matter coverage-map tiles
+
+No map key is required. Optionally set `CARTO_BASEMAP_KEY` to retain CARTO
+Dark Matter raster tiles instead of the default OpenFreeMap dark map.
 
 For full setup steps, read [HOWTO.md](HOWTO.md). For every runtime variable,
 read [ENVIRONMENT.md](ENVIRONMENT.md).
@@ -152,12 +154,25 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
   change the actual MQTT connection.
 - `CORESCOPE_URL` changes the matched message-hash link to CoreScope
   `#/packets/<hash>` routes.
-- `CARTO_BASEMAP_KEY` enables CARTO Dark Matter tiles. Without it, the coverage
-  map falls back to OpenStreetMap while the dark dashboard theme remains usable.
+- Dark maps default to keyless OpenFreeMap via locally served MapLibre GL JS
+  5.6.0 and Leaflet bridge 0.1.4. Style, tiles, sprites and fonts come from
+  `tiles.openfreemap.org`; full provider/data attribution stays visible.
+  `CARTO_BASEMAP_KEY` optionally selects CARTO Dark Matter raster tiles instead.
+- Light maps use OpenStreetMap raster tiles, also used as the fallback when
+  WebGL or the vector provider fails. Leaflet markers, popups and nearby controls
+  remain available. The PWA caches local renderer assets, not external map tiles.
 - `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` controls packet distance labels,
   nearby distances, and search radii. Browser location accuracy uses the configured distance unit.
 
 ## Runtime and dependency maintenance
+
+The pinned MapLibre 5.6.0 renderer matches the companion live-map integration.
+`npm audit` flags GHSA-jrc7-96c5-q579 (attribution HTML sanitizer bypass; fixed
+upstream in 6.4.1). This integration disables MapLibre attribution controls and
+uses fixed trusted attribution in Leaflet; it does not insert provider attribution
+HTML or use MapLibre popups. Keep that boundary when changing map controls.
+The dependency still reports the advisory; upgrading needs separate bridge and
+rendering compatibility validation.
 
 Docker and CI use Node 24. For local checks, use Node 24 (`nvm use` reads
 `.nvmrc`); other Node majors are not supported.

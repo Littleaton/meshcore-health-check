@@ -15,7 +15,7 @@ in source files.
 | `APP_DESCRIPTION` | Generated coverage description | Site description and social metadata. |
 | `SITE_URL` | blank | Public site URL used for generated absolute share links and social metadata. Set this when running behind a reverse proxy. |
 | `CORESCOPE_URL` | blank | Optional CoreScope root URL. When set, matched message hashes link to `#/packets/<hash>`. |
-| `CARTO_BASEMAP_KEY` | blank | Public browser key for CARTO Dark Matter map tiles. Without it, the map uses OpenStreetMap tiles while the dashboard can remain in dark mode. |
+| `CARTO_BASEMAP_KEY` | blank | Optional public browser key selecting CARTO Dark Matter raster tiles in dark mode. Blank uses keyless OpenFreeMap Dark via MapLibre. Light mode always uses OpenStreetMap raster tiles. |
 | `EXTERNAL_LINK_URL` | blank | Optional HTTP(S) hero/control-center external link URL. Other URL schemes are rejected. |
 | `EXTERNAL_LINK_LABEL` | blank | Label for the optional external link. |
 | `LOG_LEVEL` | `info` | Use `debug` only while troubleshooting ingest or decode behavior. |
@@ -24,9 +24,15 @@ in source files.
 | `BROWSER_LOCATION_ENABLED` | `true` | Offer opt-in Use my location. False hides browser/approximate location controls, denies geolocation via Permissions-Policy, and points guidance to Use map center. Map-center, radius, region and manual selection remain available. Restart/recreate required. Blank uses the default; case-insensitive `1`, `true`, `yes`, `on` enable it; all other nonblank values disable it (the standard boolean parser). |
 | `NEARBY_DEFAULT_RADIUS` | `100` | Initial/reload nearby radius in `DISTANCE_UNIT`. Allowed values: 5, 10, 15, 20, 25, 50, 75, 100, 150, 200. Other values fail startup with an explicit error. Snapshot updates preserve the visitor's choice. |
 
-As of August 2026, CARTO requires an API key for Dark Matter raster tiles. Keep
-the project key in `.env`, not Git. CARTO's browser integration exposes the key
-in tile request URLs, so scope it to this project and its deployment hostnames.
+No map key is required: dark mode defaults to OpenFreeMap, with MapLibre GL JS
+5.6.0 and its Leaflet bridge 0.1.4 served locally, including a same-origin CSP
+worker. Browsers contact only `tiles.openfreemap.org` for the dark style, tiles,
+sprites and fonts. OpenStreetMap raster tiles are the fallback if WebGL or the
+vector provider fails; observer markers, popups and nearby selection remain usable.
+External map resources are not cached by the app's service worker.
+
+If choosing CARTO instead, keep its project key in `.env`, not Git. The key is
+visible in browser tile request URLs, so scope it to the deployment hostnames.
 
 ## Storage
 

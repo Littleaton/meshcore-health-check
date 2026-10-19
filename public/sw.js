@@ -1,5 +1,5 @@
 // Asset revision is independent of the release version; bump for shell changes.
-const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-configured-defaults-13';
+const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-openfreemap-14';
 const CORE_ASSETS = [
   '/',
   '/app',
@@ -14,6 +14,10 @@ const CORE_ASSETS = [
   '/logo.png',
   '/vendor/leaflet/leaflet.css',
   '/vendor/leaflet/leaflet.js',
+  '/vendor/maplibre/maplibre-gl.css',
+  '/vendor/maplibre/maplibre-gl-csp.js',
+  '/vendor/maplibre/maplibre-gl-csp-worker.js',
+  '/vendor/maplibre-leaflet/leaflet-maplibre-gl.js',
 ];
 
 self.addEventListener('install', (event) => {

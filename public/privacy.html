@@ -28,7 +28,7 @@
     <h2>Browser storage and verification</h2>
     <p>The browser stores session history and interface preferences and may cache app assets for installation. Clearing this site's browser data removes that local state, not server-retained shared results. When enabled, Cloudflare Turnstile verifies visitors and the server sets a verification cookie.</p>
     <h2>Network requests and third parties</h2>
-    <p>The server and any hosting proxy receive normal connection information such as your IP address. Map tiles are fetched from OpenStreetMap or CARTO; these providers receive your IP address and requested map areas. The app does not center the map on your precise device position, but selected observers and visible map areas may reveal an approximate location. When enabled, Turnstile also contacts Cloudflare.</p>
+    <p>The server and any hosting proxy receive normal connection information such as your IP address. Dark maps fetch styles, tiles, sprites and fonts from OpenFreeMap (tiles.openfreemap.org), or raster tiles from CARTO if configured. Light maps and vector-rendering fallbacks fetch OpenStreetMap tiles. These providers receive your IP address and requested map areas; external map resources are not cached by the app's service worker. The app does not center the map on your precise device position, but selected observers and visible map areas may reveal an approximate location. When enabled, Turnstile also contacts Cloudflare.</p>
     <p>For deployment-specific logging, retention or deletion questions, contact the operator of this website. Avoid putting sensitive information into test messages.</p>
     <footer><a href="/">Back to dashboard</a></footer>
   </main>

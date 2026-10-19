@@ -132,7 +132,8 @@ cp .env.example .env
 - optionally set `INITIAL_REGION` for an activity-ranked initial/reload region;
   **Default Set** ranks within the region currently selected by the user
 - set `SITE_URL` to the public HTTPS origin when running behind a reverse proxy
-- set `CARTO_BASEMAP_KEY` to enable CARTO Dark Matter tiles for the coverage map
+- leave `CARTO_BASEMAP_KEY` blank for keyless OpenFreeMap dark tiles; set it only
+  to retain optional CARTO Dark Matter raster tiles
 - keep `TRUST_PROXY=1` behind one trusted reverse proxy, or set it to `false`
   when exposing the app directly
 - enable Turnstile if the site is internet-facing
@@ -140,18 +141,23 @@ cp .env.example .env
 
 See [ENVIRONMENT.md](ENVIRONMENT.md) for the full variable reference.
 
-CARTO now requires a project API key for its Dark Matter raster tiles. Request
-one from <https://carto.com/basemaps/apikey/>, register every hostname that will
-serve this deployment (including `localhost` when needed), and put the key only
-in `.env`:
+The dark coverage map uses OpenFreeMap by default; no API key is needed. MapLibre
+and its Leaflet bridge are served locally, while the browser fetches the style,
+tiles, sprites and fonts from `tiles.openfreemap.org`. Light mode uses
+OpenStreetMap raster tiles. Unsupported WebGL or vector-provider errors fall back
+to OpenStreetMap without disabling markers, popups or nearby selection. The
+service worker caches the local renderer assets, not external map resources.
+
+For optional CARTO Dark Matter raster tiles instead, request a project key from
+<https://carto.com/basemaps/apikey/>, register the deployment hostnames (including
+`localhost` when needed), and put the key only in `.env`:
 
 ```env
 CARTO_BASEMAP_KEY=your-carto-key
 ```
 
 The key is intentionally visible in browser tile requests, so do not reuse it
-outside this project. If it is blank, the dashboard still supports its dark UI
-theme but the coverage map falls back to OpenStreetMap tiles.
+outside this project. Clear it to return to the default OpenFreeMap dark map.
 
 4. Start the service:
 

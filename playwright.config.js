@@ -7,6 +7,8 @@ export default defineConfig({
   use: {
     browserName: 'chromium',
     headless: true,
+    // Exercise the real WebGL renderer on GPU-less CI hosts.
+    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   projects: [
     {

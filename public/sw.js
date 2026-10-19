@@ -1,5 +1,5 @@
 // Asset revision is independent of the release version; bump for shell changes.
-const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-openfreemap-14';
+const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-openfreemap-esm-15';
 const CORE_ASSETS = [
   '/',
   '/app',
@@ -15,8 +15,10 @@ const CORE_ASSETS = [
   '/vendor/leaflet/leaflet.css',
   '/vendor/leaflet/leaflet.js',
   '/vendor/maplibre/maplibre-gl.css',
-  '/vendor/maplibre/maplibre-gl-csp.js',
-  '/vendor/maplibre/maplibre-gl-csp-worker.js',
+  '/map-renderer.js',
+  '/vendor/maplibre/maplibre-gl.mjs',
+  '/vendor/maplibre/maplibre-gl-shared.mjs',
+  '/vendor/maplibre/maplibre-gl-worker.mjs',
   '/vendor/maplibre-leaflet/leaflet-maplibre-gl.js',
 ];
 
@@ -84,6 +86,7 @@ self.addEventListener('fetch', (event) => {
     || url.pathname.startsWith('/vendor/leaflet/')
     || url.pathname.endsWith('.css')
     || url.pathname.endsWith('.js')
+    || url.pathname.endsWith('.mjs')
     || url.pathname.endsWith('.png')
   ) {
     event.respondWith(networkFirst(event.request));

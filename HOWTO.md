@@ -142,9 +142,10 @@ cp .env.example .env
 See [ENVIRONMENT.md](ENVIRONMENT.md) for the full variable reference.
 
 The dark coverage map uses OpenFreeMap by default; no API key is needed. MapLibre
-and its Leaflet bridge are served locally, while the browser fetches the style,
+6.4.1 and its Leaflet bridge are served locally as ordered modules, including
+the same-origin module worker. The browser fetches the style,
 tiles, sprites and fonts from `tiles.openfreemap.org`. Light mode uses
-OpenStreetMap raster tiles. Unsupported WebGL or vector-provider errors fall back
+OpenStreetMap raster tiles. Unsupported WebGL2 or vector-provider errors fall back
 to OpenStreetMap without disabling markers, popups or nearby selection. The
 service worker caches the local renderer assets, not external map resources.
 

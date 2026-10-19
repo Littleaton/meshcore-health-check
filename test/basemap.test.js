@@ -18,10 +18,12 @@ test('keyless sites advertise a dark basemap', async () => {
   assert.equal(bootstrap.map.darkBasemapAvailable, true);
 });
 
-test('dashboard and shared results serve pinned local CSP renderer assets', async () => {
+test('dashboard and shared results serve pinned local module renderer assets', async () => {
   for (const asset of [
-    '/vendor/maplibre/maplibre-gl-csp.js',
-    '/vendor/maplibre/maplibre-gl-csp-worker.js',
+    '/map-renderer.js',
+    '/vendor/maplibre/maplibre-gl.mjs',
+    '/vendor/maplibre/maplibre-gl-shared.mjs',
+    '/vendor/maplibre/maplibre-gl-worker.mjs',
     '/vendor/maplibre/maplibre-gl.css',
     '/vendor/maplibre-leaflet/leaflet-maplibre-gl.js',
   ]) {
@@ -36,6 +38,13 @@ test('dashboard and shared results serve pinned local CSP renderer assets', asyn
   assert.match(csp, /worker-src 'self'/);
   assert.doesNotMatch(csp, /unsafe-eval|worker-src[^;]*blob:/);
   const html = await response.text();
-  assert.match(html, /\/vendor\/maplibre\/maplibre-gl-csp.js/);
-  assert.match(html, /\/vendor\/maplibre-leaflet\/leaflet-maplibre-gl.js/);
+  assert.doesNotMatch(html, /maplibre-gl-csp|leaflet-maplibre-gl.js/);
+  const app = await (await fetch(`${baseUrl}/app.js`)).text();
+  assert.match(app, /import ['"]\.\/map-renderer.js['"]/);
+});
+
+test('renderer is pinned to the patched 6.4.1 release', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
+  assert.equal(manifest.dependencies['maplibre-gl'], '6.4.1');
 });

@@ -860,11 +860,10 @@ test('keyless dark map renders with real MapLibre and releases canvases on theme
     return loaded;
   })).toBe(true);
   expect(workers.length).toBeGreaterThan(0);
-  expect(workers.every((url) => new URL(url).pathname === '/vendor/maplibre/maplibre-gl-csp-worker.js')).toBe(true);
+  expect(workers.every((url) => new URL(url).pathname === '/vendor/maplibre/maplibre-gl-worker.mjs')).toBe(true);
   await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenFreeMap');
   await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenMapTiles');
-  // The pinned renderer has a sanitizer advisory: do not instantiate its
-  // attribution/popup controls or reflect provider-supplied attribution HTML.
+  // Keep provider attribution outside the DOM even with the patched renderer.
   await expect(page.locator('#observer-map .maplibregl-ctrl-attrib, #observer-map details')).toHaveCount(0);
   await expect(page.locator('.leaflet-control-attribution')).not.toContainText('Untrusted source attribution');
   expect(await page.evaluate(() => window.__attributionXss)).toBeUndefined();
@@ -885,7 +884,7 @@ test('keyless dark map renders with real MapLibre and releases canvases on theme
   expect(errors).toEqual([]);
 });
 
-for (const failure of ['unsupported WebGL', 'bridge factory', 'renderer construction', 'provider']) {
+for (const failure of ['unsupported WebGL', 'bridge factory', 'renderer construction', 'renderer loading', 'bridge loading', 'provider']) {
   test(`dark map falls back to OSM after ${failure} failure without losing Leaflet interactions`, async ({ page }) => {
     const target = mapObserver(MAP_TEST_KEYS.target, 'Fallback Observer', 42.3601, -71.0589, 'BOS');
     const errors = [];
@@ -899,24 +898,37 @@ for (const failure of ['unsupported WebGL', 'bridge factory', 'renderer construc
         };
       });
     }
+    if (failure === 'renderer loading' || failure === 'bridge loading') {
+      await page.route(failure === 'renderer loading'
+        ? '**/vendor/maplibre/maplibre-gl.mjs' : '**/vendor/maplibre-leaflet/leaflet-maplibre-gl.js', (route) => route.abort());
+    }
     if (failure === 'renderer construction' || failure === 'bridge factory') {
       const asset = failure === 'renderer construction'
-        ? '**/vendor/maplibre/maplibre-gl-csp.js' : '**/vendor/maplibre-leaflet/leaflet-maplibre-gl.js';
+        ? '**/map-renderer.js' : '**/vendor/maplibre-leaflet/leaflet-maplibre-gl.js';
       await page.route(asset, async (route) => {
         const response = await route.fetch();
         const injection = failure === 'renderer construction'
-          ? 'maplibregl.Map = function () { throw new Error("injected renderer failure"); };'
-          : 'L.maplibreGL = function () { throw new Error("injected bridge failure"); };';
-        await route.fulfill({ response, body: `${await response.text()}\n${injection}` });
+          ? 'window.maplibregl.Map = function () { window.__failureInjected = true; throw new Error("injected renderer failure"); };'
+          : 'L.maplibreGL = function () { window.__failureInjected = true; throw new Error("injected bridge failure"); };';
+        const source = await response.text();
+        const body = failure === 'renderer construction'
+          ? source.replace("await import('/vendor/maplibre-leaflet/leaflet-maplibre-gl.js');", `${injection}\nawait import('/vendor/maplibre-leaflet/leaflet-maplibre-gl.js');`)
+          : `${source}\n${injection}`;
+        await route.fulfill({ response, body });
       });
     }
-    await page.route('https://tiles.openfreemap.org/**', (route) => route.fulfill({ status: 503, body: 'Provider unavailable' }));
+    await page.route('https://tiles.openfreemap.org/**', (route) => failure === 'provider'
+      ? route.fulfill({ status: 503, body: 'Provider unavailable' })
+      : route.fulfill({ json: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#101820' } }] } }));
     await page.route('https://*.tile.openstreetmap.org/**', (route) => {
       osmRequests.push(route.request().url());
       return route.abort();
     });
     await captureMap(page);
     await openMockMapSession(page, [target], [target], '');
+    if (failure === 'renderer construction' || failure === 'bridge factory') {
+      await expect.poll(() => page.evaluate(() => window.__failureInjected)).toBe(true);
+    }
     await expect.poll(() => osmRequests.length).toBeGreaterThan(0);
     await expect(page.locator('#observer-map canvas')).toHaveCount(0);
     await expect(page.locator('#observer-map .leaflet-gl-layer')).toHaveCount(0);

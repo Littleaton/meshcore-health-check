@@ -1,3 +1,4 @@
+import './map-renderer.js';
 import { nearestObservers } from './nearest-observers.js';
 import { refineLocation } from './location-refinement.js';
 
@@ -1534,7 +1535,6 @@ function currentTileLayer() {
   const cartoBasemapKey = String(state.snapshot?.map?.cartoBasemapKey || '').trim();
   if (state.uiTheme !== 'light' && !cartoBasemapKey && window.L.maplibreGL && window.maplibregl
     && (typeof window.maplibregl.supported !== 'function' || window.maplibregl.supported())) {
-    window.maplibregl.setWorkerUrl('/vendor/maplibre/maplibre-gl-csp-worker.js');
     return window.L.maplibreGL({
       style: 'https://tiles.openfreemap.org/styles/dark',
       attributionControl: { customAttribution:

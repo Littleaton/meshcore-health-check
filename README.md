@@ -155,7 +155,7 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
 - `CORESCOPE_URL` changes the matched message-hash link to CoreScope
   `#/packets/<hash>` routes.
 - Dark maps default to keyless OpenFreeMap via locally served MapLibre GL JS
-  5.6.0 and Leaflet bridge 0.1.4. Style, tiles, sprites and fonts come from
+  6.4.1 and Leaflet bridge 0.1.4. Style, tiles, sprites and fonts come from
   `tiles.openfreemap.org`; full provider/data attribution stays visible.
   `CARTO_BASEMAP_KEY` optionally selects CARTO Dark Matter raster tiles instead.
 - Light maps use OpenStreetMap raster tiles, also used as the fallback when
@@ -166,13 +166,13 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
 
 ## Runtime and dependency maintenance
 
-The pinned MapLibre 5.6.0 renderer matches the companion live-map integration.
-`npm audit` flags GHSA-jrc7-96c5-q579 (attribution HTML sanitizer bypass; fixed
-upstream in 6.4.1). This integration disables MapLibre attribution controls and
-uses fixed trusted attribution in Leaflet; it does not insert provider attribution
-HTML or use MapLibre popups. Keep that boundary when changing map controls.
-The dependency still reports the advisory; upgrading needs separate bridge and
-rendering compatibility validation.
+MapLibre is pinned to 6.4.1, which fixes the attribution sanitizer bypass
+GHSA-jrc7-96c5-q579. Its ESM renderer, shared module and native module worker
+are served locally; the loader initializes the Leaflet bridge before the app.
+Same-origin workers need neither `blob:` nor `unsafe-eval` CSP permissions.
+WebGL2 is required; unsupported browsers and failed optional renderer assets
+fall back to OpenStreetMap. Keep fixed trusted attribution in Leaflet rather
+than inserting provider attribution HTML or using MapLibre popup controls.
 
 Docker and CI use Node 24. For local checks, use Node 24 (`nvm use` reads
 `.nvmrc`); other Node majors are not supported.

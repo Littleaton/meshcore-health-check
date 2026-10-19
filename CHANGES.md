@@ -2,6 +2,8 @@
 
 ## v1.4.0
 
+- distinguished signal readings that are still pending from matched messages
+  without RSSI/SNR data, which now show Signal data unavailable
 - added keyless OpenFreeMap dark coverage maps with locally served MapLibre and
   full provider/data attribution; retained optional configured CARTO Dark Matter
   and OpenStreetMap light maps, with raster fallback when vector rendering fails

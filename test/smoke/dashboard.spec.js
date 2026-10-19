@@ -712,6 +712,33 @@ for (const [name, evidence, scored] of [
   });
 }
 
+test('signal quality distinguishes waiting from unavailable data and reported readings', async ({ page }) => {
+  const target = mapObserver(MAP_TEST_KEYS.target, 'Signal observer', 42, -71, 'BOS');
+  await openMockMapSession(page, [target], [target]);
+  await expect(page.locator('#signal-quality')).toHaveText('--');
+  await expect(page.locator('#signal-quality-label')).toHaveText('Awaiting telemetry.');
+
+  const receipt = { observerKey: target.key, firstSeenAt: Date.now(), lastSeenAt: Date.now(), path: [], rssi: null, snr: null };
+  for (const evidence of [
+    { messageHash: 'ABCDEF' },
+    { matchedAt: Date.now() },
+    { useCount: 1 },
+    { observedCount: 1, receipts: [receipt] },
+  ]) {
+    await page.route('**/api/sessions/map-session', (route) => route.fulfill({ json: { ...mapSession([target]), ...evidence } }));
+    await page.reload();
+    await expect(page.locator('#signal-quality')).toHaveText('--');
+    await expect(page.locator('#signal-quality-label')).toHaveText('Signal data unavailable.');
+  }
+
+  await page.route('**/api/sessions/map-session', (route) => route.fulfill({ json: {
+    ...mapSession([target]), matchedAt: Date.now(), receipts: [{ ...receipt, rssi: -90, snr: 0 }],
+  } }));
+  await page.reload();
+  await expect(page.locator('#signal-quality')).toHaveText(/\d+%/);
+  await expect(page.locator('#signal-quality-label')).not.toHaveText(/Awaiting|unavailable/);
+});
+
 test('primary code comes before collapsed customization and diagnostics', async ({ page }) => {
   await page.goto('/app');
   await expect(page.locator('#session-code')).toContainText('MHC-');

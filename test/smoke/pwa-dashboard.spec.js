@@ -46,10 +46,10 @@ test('prior PWA worker upgrades the shell and caches every local vector asset', 
     upgraded = true;
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
     await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 15000 }).toEqual([
-      'mesh-health-check-pwa-v1.4.0-openfreemap-esm-15',
+      'mesh-health-check-pwa-v1.4.0-signal-unavailable-16',
     ]);
     const cached = await page.evaluate(async () => {
-      const cache = await caches.open('mesh-health-check-pwa-v1.4.0-openfreemap-esm-15');
+      const cache = await caches.open('mesh-health-check-pwa-v1.4.0-signal-unavailable-16');
       return { paths: (await cache.keys()).map((request) => new URL(request.url).pathname), shell: await (await cache.match('/app')).text() };
     });
     expect(cached.paths).toEqual(expect.arrayContaining([
@@ -60,7 +60,7 @@ test('prior PWA worker upgrades the shell and caches every local vector asset', 
     expect(cached.shell).toContain('/app.js');
     const source = await fs.readFile(new URL('../../public/app.js', import.meta.url), 'utf8');
     expect(await page.evaluate(async () => (await caches.match('/app.js')).text())).toBe(source);
-    expect(await page.evaluate(async () => (await (await caches.open('mesh-health-check-pwa-v1.4.0-openfreemap-esm-15')).keys()).every((r) => new URL(r.url).origin === location.origin))).toBe(true);
+    expect(await page.evaluate(async () => (await (await caches.open('mesh-health-check-pwa-v1.4.0-signal-unavailable-16')).keys()).every((r) => new URL(r.url).origin === location.origin))).toBe(true);
   } finally {
     await context.close();
     proxy.closeAllConnections();

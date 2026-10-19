@@ -622,7 +622,7 @@ function signalSummary(session) {
   if (points.length === 0) {
     return {
       value: '--',
-      label: 'Awaiting telemetry.',
+      label: hasMeasuredResult(session) ? 'Signal data unavailable.' : 'Awaiting telemetry.',
       tone: 'neutral',
       points: [],
     };

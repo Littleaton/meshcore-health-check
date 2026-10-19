@@ -1,5 +1,5 @@
 // Asset revision is independent of the release version; bump for shell changes.
-const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-openfreemap-esm-15';
+const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-signal-unavailable-16';
 const CORE_ASSETS = [
   '/',
   '/app',

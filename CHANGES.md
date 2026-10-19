@@ -2,6 +2,9 @@
 
 ## v1.4.0
 
+- fixed CARTO hostname-authorized tiles by sending only the site origin on
+  CARTO image requests; retained the global no-referrer policy and existing
+  Turnstile protection without exposing dashboard/share paths or query strings
 - distinguished signal readings that are still pending from matched messages
   without RSSI/SNR data, which now show Signal data unavailable
 - added keyless OpenFreeMap dark coverage maps with locally served MapLibre and

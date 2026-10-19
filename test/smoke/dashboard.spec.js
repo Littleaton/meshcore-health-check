@@ -841,19 +841,35 @@ test('coverage map omits observers with 0,0 coordinates', async ({ page }) => {
   await expect(page.locator('#observer-map .leaflet-marker-icon')).toHaveCount(1);
 });
 
-test('dark coverage map sends the configured CARTO API key', async ({ page }) => {
+test('CARTO tiles send only the origin while the dashboard retains no-referrer', async ({ page }) => {
   const target = mapObserver(MAP_TEST_KEYS.target, 'Target Observer', 42.3601, -71.0589, 'BOS');
   const cartoRequests = [];
+  const osmReferrers = [];
   await page.route('https://*.basemaps.cartocdn.com/**', async (route) => {
-    cartoRequests.push(route.request().url());
+    cartoRequests.push({ url: route.request().url(), referer: await route.request().headerValue('referer') });
+    await route.abort();
+  });
+  await page.route('https://*.tile.openstreetmap.org/**', async (route) => {
+    osmReferrers.push(await route.request().headerValue('referer'));
     await route.abort();
   });
 
   await openMockMapSession(page, [target], [target]);
-
+  await page.route('**/api/sessions', (route) => route.fulfill({ json: mapSession([target]) }));
+  cartoRequests.length = 0;
+  const response = await page.goto('/app?private=referrer-regression');
+  expect(response.headers()['referrer-policy']).toBe('no-referrer');
   await expect.poll(() => cartoRequests.length).toBeGreaterThan(0);
-  expect(cartoRequests[0]).toContain('dark_all');
-  expect(cartoRequests[0]).toContain('key=test-carto-key');
+  expect(cartoRequests[0].url).toContain('dark_all');
+  expect(cartoRequests[0].url).toContain('key=test-carto-key');
+  const origin = `${new URL(page.url()).origin}/`;
+  expect(cartoRequests.every((request) => request.referer === origin)).toBe(true);
+  await expect(page.locator('#observer-map canvas.maplibregl-canvas')).toHaveCount(0);
+  await expect(page.locator('#observer-map img.leaflet-tile').first()).toHaveAttribute('referrerpolicy', 'strict-origin');
+
+  await page.locator('#ui-theme-toggle').click();
+  await expect.poll(() => osmReferrers.length).toBeGreaterThan(0);
+  expect(osmReferrers.every((referer) => referer === null)).toBe(true);
 });
 
 test('keyless dark map renders with real MapLibre and releases canvases on theme changes', async ({ page }) => {

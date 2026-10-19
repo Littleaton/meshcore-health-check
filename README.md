@@ -158,6 +158,8 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
   6.4.1 and Leaflet bridge 0.1.4. Style, tiles, sprites and fonts come from
   `tiles.openfreemap.org`; full provider/data attribution stays visible.
   `CARTO_BASEMAP_KEY` optionally selects CARTO Dark Matter raster tiles instead.
+  Those tile images send only the site origin for CARTO hostname authorization;
+  other requests retain the global no-referrer policy.
 - Light maps use OpenStreetMap raster tiles, also used as the fallback when
   WebGL or the vector provider fails. Leaflet markers, popups and nearby controls
   remain available. The PWA caches local renderer assets, not external map tiles.

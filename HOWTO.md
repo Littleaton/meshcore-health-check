@@ -159,6 +159,27 @@ CARTO_BASEMAP_KEY=your-carto-key
 
 The key is intentionally visible in browser tile requests, so do not reuse it
 outside this project. Clear it to return to the default OpenFreeMap dark map.
+CARTO tile images explicitly use `strict-origin` referrer policy so authorized
+keys receive the site origin, but not dashboard/share paths or query strings.
+Other resources retain the app's global `no-referrer` policy. Version 1.3.9
+omitted this tile-specific policy and can receive HTTP 403 from CARTO even
+with a correctly configured key. Upgrade/rebuild the app rather than rotating
+the key, removing hostname restrictions, or weakening proxy security headers.
+
+For an existing default source/Compose installation, after the fix is published
+to the branch or release you deploy, run these commands from that checkout:
+
+```bash
+git status --short
+git pull --ff-only
+docker compose build --pull mesh-health-check
+docker compose up -d --no-build --pull never mesh-health-check
+```
+
+Resolve or preserve local tracked changes before pulling. Keep the existing
+`.env` and `data/` directory; no key rotation or environment changes are needed.
+The default Compose file builds from source, so `docker compose pull` alone
+cannot install this fix. Refresh the dashboard after the rebuilt container starts.
 
 4. Start the service:
 

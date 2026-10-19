@@ -33,6 +33,10 @@ External map resources are not cached by the app's service worker.
 
 If choosing CARTO instead, keep its project key in `.env`, not Git. The key is
 visible in browser tile request URLs, so scope it to the deployment hostnames.
+Only CARTO tile images use `referrerPolicy: strict-origin`: CARTO receives the
+site origin needed for hostname authorization, never the dashboard/share path
+or query string. The global `Referrer-Policy: no-referrer` remains unchanged
+for other resources and links. No reverse-proxy header changes are required.
 
 ## Storage
 

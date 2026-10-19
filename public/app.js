@@ -1552,6 +1552,8 @@ function currentTileLayer() {
   return window.L.tileLayer(tileUrl, {
     maxZoom: 19,
     subdomains: 'abcd',
+    // CARTO website-authorized keys need the origin, never the page path or query.
+    referrerPolicy: 'strict-origin',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   });
 }

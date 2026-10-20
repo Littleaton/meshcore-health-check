@@ -101,6 +101,8 @@ test('sixteen-character code and length controls fit desktop and mobile', async 
 
 
 test('older bootstrap without code options retains default guidance and code', async ({ page }) => {
+  // Emulate an old backend consistently: current live snapshots carry codeOptions.
+  await page.addInitScript(() => { window.WebSocket = class { addEventListener() {} close() {} }; });
   await page.route('**/api/bootstrap', async route => {
     const response = await route.fetch();
     const bootstrap = await response.json();

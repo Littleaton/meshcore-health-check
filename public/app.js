@@ -17,6 +17,7 @@ const ui = {
   codeLengthControl: document.querySelector('#code-length-control'),
   codeLength: document.querySelector('#code-length'),
   codeLengthValue: document.querySelector('#code-length-value'),
+  codeLengthNote: document.querySelector('#code-length-note'),
   copySessionCodeButton: document.querySelector('#copy-session-code'),
   shareSessionButton: document.querySelector('#share-session'),
   sessionCode: document.querySelector('#session-code'),
@@ -2137,6 +2138,9 @@ function render() {
   }
   applyUiTheme();
   renderNearbySelection();
+  if (ui.codeLengthNote) {
+    ui.codeLengthNote.textContent = `Hex characters after ${snapshot.codeOptions?.prefix || 'MHC'}-. Applies to new codes only.`;
+  }
   if (ui.codeLengthControl) {
     ui.codeLengthControl.hidden = snapshot.codeOptions?.maxLength !== 16 || isSharePage();
   }

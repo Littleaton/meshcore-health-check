@@ -33,7 +33,10 @@ Other community Health Checks:
 
 Copy the active code and send it to the displayed MeshCore channel. Checks show
 **Awaiting message** without a score until a matching message is observed.
-**Details** contains secondary diagnostics, including the message hash and broker.
+Channel-send guidance stays visible below the code actions. **Details** contains
+secondary diagnostics, including the message hash and broker. A matched message
+without usable RSSI/SNR shows **Signal data unavailable**, not pending telemetry;
+its observer coverage can still be scored.
 
 Open **Change observers** above the map for regional, manual or nearby selection.
 The score describes the current code's saved targets; if a used code has a different
@@ -128,7 +131,9 @@ No map key is required. Optionally set `CARTO_BASEMAP_KEY` to retain CARTO
 Dark Matter raster tiles instead of the default OpenFreeMap dark map.
 
 For full setup steps, read [HOWTO.md](HOWTO.md). For every runtime variable,
-read [ENVIRONMENT.md](ENVIRONMENT.md).
+read [ENVIRONMENT.md](ENVIRONMENT.md). Existing deployments should follow the
+[v1.4.0 upgrade checklist](HOWTO.md#upgrading-to-v140) to preserve configuration
+and state, reconcile frontend overrides, and recreate the service after env edits.
 
 ## Project Layout
 

@@ -250,6 +250,57 @@ Image tags:
   `dev`.
 - Release tags and short-SHA tags are also published by the Docker workflow.
 
+## Upgrading to v1.4.0
+
+Back up the existing `.env`, Compose/override files and mounted `data/` before
+upgrading. Preserve your MQTT/channel settings, Turnstile keys, site branding,
+networks and persistent mounts. Compare `.env.example` with your existing `.env`;
+do not copy the template over a working configuration.
+
+The new settings are optional:
+
+- `ALLOW_LONGER_TEST_CODES=false`: six-character suffixes remain the default.
+  Set `true` to offer the 6-16-character slider for newly generated codes.
+- `BROWSER_LOCATION_ENABLED=true`: browser location remains opt-in per visitor.
+  Set `false` to hide it while keeping map-center and manual selection.
+- `NEARBY_DEFAULT_RADIUS=100`: choose a supported radius in `DISTANCE_UNIT`.
+
+Review `ALLOWED_REGION_GROUPS`, `ALLOWED_REGIONS` and `INITIAL_REGION` for regional
+sites. Fixed `KNOWN_OBSERVERS` defaults remain supported when `INITIAL_REGION`
+is blank. Blank `CARTO_BASEMAP_KEY` now uses keyless OpenFreeMap dark maps;
+a configured key continues to select CARTO. Remove or reconcile any old full-file
+`app.js` overrides, which otherwise mask the new frontend. Preserve logo mounts.
+
+For a source checkout, select the branch or release containing v1.4.0, then run:
+
+```bash
+git status --short
+git pull --ff-only
+docker compose build --pull mesh-health-check
+docker compose up -d --no-build --pull never --force-recreate mesh-health-check
+```
+
+For an image-only deployment, first select a published tag containing v1.4.0
+in Compose, then run:
+
+```bash
+docker compose pull mesh-health-check
+docker compose up -d --no-build --pull never --force-recreate mesh-health-check
+```
+
+A feature-branch push alone does not publish a release image or update `latest`/`dev`.
+Use a tag that has actually been published. A checkout pinned to a tag must
+explicitly select the desired release rather than relying on `git pull`.
+Recreation reloads `.env`; `docker compose restart` alone does not.
+
+After startup, check `/api/bootstrap`: `site.version` should be `1.4.0`,
+`mqtt.connected` should become true, and `codeOptions.maxLength` should be 6
+or 16 according to `ALLOW_LONGER_TEST_CODES`. Refresh the dashboard to pick up
+the updated PWA shell. Confirm channel guidance is visible beside the code,
+observer targets and map match your selection, and the slider appears only
+when enabled. Test a new code on the configured channel to verify actual RF
+receipts; successful HTTP responses alone do not prove radio delivery.
+
 ## User Flow
 
 1. The user opens the site.
@@ -272,7 +323,10 @@ Users can run a check against:
 
 - `VERY HEALTHY`: most target observers saw the packet
 - `GOOD` or `FAIR`: partial target coverage
-- `POOR`: very limited coverage or no receipts yet
+- `POOR`: very limited measured target coverage
+- **Awaiting message**: no matching message yet; the check is unscored, not failed
+- **Signal data unavailable**: a message matched, but its receipts lack usable
+  RSSI/SNR readings; observer coverage can still be scored
 
 Each code expires after `SESSION_TTL_SECONDS` and can be used up to
 `MAX_USES_PER_CODE` times. Shared results are retained server-side for

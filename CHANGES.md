@@ -2,6 +2,8 @@
 
 ## v1.4.0
 
+- clarified v1.4.0 upgrade and verification steps, environment-file recreation,
+  fixed versus activity-ranked defaults, and unscored/unavailable result states
 - added opt-in `ALLOW_LONGER_TEST_CODES=false`: enabling it offers a 6-16
   hex-character suffix slider for new codes only; defaults remain six characters
   with the slider hidden, and retained codes, targets, results and shares stay intact

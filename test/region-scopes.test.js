@@ -49,6 +49,29 @@ test('strict bounded public-only YAML config and startup capability', () => run(
   } finally { fs.rmSync(dir, {recursive: true, force: true}); }
 `));
 
+test('public names obey firmware byte characters and pre-hashtag storage without truncation', () => run(`
+  import assert from 'node:assert/strict';
+  import fs from 'node:fs';
+  import os from 'node:os';
+  import path from 'node:path';
+  import { loadMeshcoreScopes } from './lib/meshcore-scopes.js';
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mhc-name-bounds-'));
+  const file = path.join(dir, 'scopes.yml');
+  function load(name) {
+    fs.writeFileSync(file, JSON.stringify({regions:[name]}));
+    return loadMeshcoreScopes(file).regions;
+  }
+  try {
+    // RegionMap stores at most 30 bytes BEFORE an implicit '#'. An explicit '#' uses a byte.
+    for (const name of ['Fictional-Cloud', '#Fictional-Moon', 'a'.repeat(30), '#' + 'a'.repeat(29), '\\u00e9'.repeat(15), '#' + '\\u00e9'.repeat(14) + 'a', 'A_Z[Q]^R' ]) {
+      assert.deepEqual(load(name), [name.startsWith('#') ? name : '#' + name]);
+    }
+    for (const name of ['a.b', 'a/b', 'a:b', 'a@b', 'a,b', 'a'.repeat(31), '#' + 'a'.repeat(30), '\\u00e9'.repeat(15) + 'a', '#' + '\\u00e9'.repeat(15)]) {
+      assert.throws(() => load(name), /MESHCORE_REGION_SCOPES_FILE.*(firmware|30 UTF-8 bytes)/, name);
+    }
+  } finally { fs.rmSync(dir, {recursive:true, force:true}); }
+`));
+
 test('encrypted received scopes remain per-observer and survive changed/disabled configuration', () => run(`
   import assert from 'node:assert/strict';
   import fs from 'node:fs';
@@ -56,7 +79,13 @@ test('encrypted received scopes remain per-observer and survive changed/disabled
   import path from 'node:path';
   import { createRequire } from 'node:module';
   import { buildGroupTextEnvelope } from './test/support/build-meshcore-fixture.js';
-  const {calcTransportCodeForRegion} = createRequire(import.meta.url)('@michaelhart/meshcore-decoder');
+  const decoder = createRequire(import.meta.url)('@michaelhart/meshcore-decoder');
+  const {calcTransportCodeForRegion} = decoder;
+  let comparisons = 0;
+  for (const method of ['transportCodeMatchesRegion', 'calcTransportCode']) {
+    const original = decoder[method];
+    Object.defineProperty(decoder, method, {value:(...args) => { comparisons++; return original(...args); }, configurable:true});
+  }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mhc-scope-rf-'));
   process.env.MESH_HEALTH_DISABLE_RUNTIME = 'false';
   process.env.OBSERVERS_FILE = path.join(dir, 'observers.json');
@@ -91,7 +120,11 @@ test('encrypted received scopes remain per-observer and survive changed/disabled
     const envelope = fixture();
     const payload = Buffer.from(envelope.raw, 'hex').subarray(2);
     const code = calcTransportCodeForRegion(names[0], 5, payload);
+    const unrelated = buildGroupTextEnvelope({secretHex:process.env.TEST_CHANNEL_SECRET, sender:'Synthetic Scope', message:'Unrelated channel conversation', messageHash:'bbccdd1122334455', timestamp:1760000000});
+    ingest(scoped(unrelated, code));
+    assert.equal(comparisons, 0, 'unmatched decrypted scoped traffic performs no scope comparisons');
     ingest(scoped(envelope, code));
+    assert.equal(comparisons, names.length, 'eligible receipt compares each public region once');
     let result = await get();
     const expectedNames = names.filter(n => calcTransportCodeForRegion(n, 5, payload) === code);
     assert.deepEqual(result.receipts[0].meshcoreScopes, [{state:expectedNames.length > 1 ? 'ambiguous' : 'known', names:expectedNames}]);
@@ -145,11 +178,64 @@ test('encrypted received scopes remain per-observer and survive changed/disabled
     const old = await (await fetch('http://127.0.0.1:' + legacy.server.address().port + '/api/sessions/' + session.id)).json();
     assert.deepEqual(old.receipts[0].meshcoreScopes, [{state:'not-present', names:[]}]);
     await new Promise(r => legacy.server.close(r));
+    // Expiry must also gate already-mapped hashes before the periodic prune runs.
+    const realNow = Date.now;
+    const beforeExpired = comparisons;
+    try {
+      Date.now = () => session.expiresAt + 1;
+      ingest(scoped(envelope, code));
+      assert.equal(comparisons, beforeExpired, 'expired matched packets perform no scope comparisons');
+    } finally { Date.now = realNow; }
   } finally {
     api.flushScheduledWrites();
     await new Promise(r => api.server.close(r));
     fs.rmSync(dir, {recursive:true, force:true});
   }
+`));
+
+test('region keys are prepared once and binary payload is reused for every comparison', () => run(`
+  import assert from 'node:assert/strict';
+  import fs from 'node:fs';
+  import os from 'node:os';
+  import path from 'node:path';
+  import { createRequire } from 'node:module';
+  const decoder = createRequire(import.meta.url)('@michaelhart/meshcore-decoder');
+  let keyCalls = 0, codeCalls = 0;
+  const payloadBytes = Buffer.alloc(180, 0xab);
+  const regionNames = ['#Fictional-Cloud', '#Fictional-Moon'];
+  const code = decoder.calcTransportCodeForRegion(regionNames[0], 5, payloadBytes);
+  for (const method of ['calcRegionKey', 'calcTransportCode']) {
+    const original = decoder[method];
+    Object.defineProperty(decoder, method, {configurable:true, value:(...args) => {
+      if (method === 'calcRegionKey') keyCalls++;
+      else { codeCalls++; assert.strictEqual(args[2], payloadBytes, 'one binary payload, not per-region hex reparsing'); }
+      return original(...args);
+    }});
+  }
+  const { loadMeshcoreScopes, recognizeMeshcoreScope } = await import('./lib/meshcore-scopes.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mhc-scope-cache-'));
+  try {
+    const file = path.join(dir,'scopes.yml');
+    fs.writeFileSync(file, JSON.stringify({regions:regionNames}));
+    const config = loadMeshcoreScopes(file);
+    assert.equal(keyCalls, 2, 'prepare public keys at startup, not per received packet');
+    const packet = {routeType:0,payloadType:5,payloadBytes,transportCodes:[code,42]};
+    const expected = {state:'known',names:[regionNames[0]]};
+    assert.deepEqual(recognizeMeshcoreScope(config,packet), expected);
+    assert.deepEqual(recognizeMeshcoreScope(config,packet), expected);
+    assert.equal(keyCalls,2);
+    assert.equal(codeCalls,4);
+    const direct = {enabled:true,regions:regionNames};
+    assert.deepEqual(recognizeMeshcoreScope(direct,packet),expected);
+    assert.deepEqual(recognizeMeshcoreScope(direct,packet),expected);
+    assert.equal(keyCalls,4, 'plain helper configurations also reuse prepared keys');
+    direct.regions[0] = '#Fictional-Replacement';
+    assert.deepEqual(recognizeMeshcoreScope(direct,packet), {state:'unknown',names:[]});
+    assert.equal(keyCalls,6, 'mutated direct configuration cannot use stale cached keys');
+    recognizeMeshcoreScope({enabled:false,regions:['#Fictional-Unused']},packet);
+    recognizeMeshcoreScope(direct,{...packet,transportCodes:[0,code]});
+    assert.equal(keyCalls,6, 'disabled and unscoped packets do not prepare keys');
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
 `));
 
 test('packet-dependent public-name candidates, disabled/empty config, and unavailable states', async () => {
@@ -180,6 +266,31 @@ test('packet-dependent public-name candidates, disabled/empty config, and unavai
   assert.ok(pair);
   assert.deepEqual(recognizeMeshcoreScope({enabled:true,regions:pair},packet),{state:'ambiguous',names:pair});
   console.log('Synthetic collision evidence:',JSON.stringify({payload:payloadBytes.toString('hex'),code:packet.transportCodes[0],names:pair}));
+});
+
+test('prepared matching preserves decoder parity, reserved codes and first-code-only semantics', async () => {
+  const { recognizeMeshcoreScope } = await import('../lib/meshcore-scopes.js');
+  const { createRequire } = await import('node:module');
+  const { createHmac } = await import('node:crypto');
+  const {calcRegionKey, calcTransportCodeForRegion} = createRequire(import.meta.url)('@michaelhart/meshcore-decoder');
+  const config = {enabled:true, regions:Array.from({length:64}, (_, i) => '#Fictional-Parity-' + i)};
+  for (const size of [1, 19, 180]) {
+    const payloadBytes = Buffer.alloc(size, 0xab);
+    const code = calcTransportCodeForRegion(config.regions[0], 5, payloadBytes);
+    const names = config.regions.filter(name => calcTransportCodeForRegion(name,5,payloadBytes) === code);
+    const packet = {routeType:3,payloadType:5,payloadBytes,transportCodes:[code,12345]};
+    assert.deepEqual(recognizeMeshcoreScope(config,packet), {state:names.length > 1 ? 'ambiguous' : 'known', names});
+    assert.deepEqual(recognizeMeshcoreScope(config,{...packet,transportCodes:[code,54321]}), recognizeMeshcoreScope(config,packet));
+  }
+  const name = '#Fictional-Reserved';
+  for (const [hex, rawCode, code] of [['347d0000',0,1], ['fa320000',65535,65534]]) {
+    const payloadBytes = Buffer.from(hex,'hex');
+    assert.equal(createHmac('sha256',calcRegionKey(name)).update(Buffer.from([5])).update(payloadBytes).digest().readUInt16LE(), rawCode);
+    assert.equal(calcTransportCodeForRegion(name,5,payloadBytes), code);
+    const packet = {routeType:0,payloadType:5,payloadBytes,transportCodes:[code,0]};
+    assert.deepEqual(recognizeMeshcoreScope({enabled:true,regions:[name]},packet), {state:'known',names:[name]});
+    assert.deepEqual(recognizeMeshcoreScope({enabled:true,regions:[name]}, {...packet,transportCodes:[12345,code]}), {state:'unknown',names:[]});
+  }
 });
 
 test('MeshCore scope recognition defaults to disabled without changing geographic scope', () => run(`

@@ -2900,9 +2900,6 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
     channelHash,
     channelName,
     path,
-    meshcoreScope: decodedGroup
-      ? recognizeMeshcoreScope(meshcoreScopes, parsePacketHex(raw))
-      : { state: 'unavailable', names: [] },
     packetType: packet.payloadType,
     rssi: Number.isFinite(Number(envelope?.rssi)) ? Number(envelope.rssi) : null,
     snr: Number.isFinite(Number(envelope?.snr)) ? Number(envelope.snr) : null,
@@ -2932,7 +2929,7 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
   if (!session && messageHash && messageToSession.has(messageHash)) {
     session = sessions.get(messageToSession.get(messageHash)) || null;
   }
-  if (!session || session.status === 'expired') {
+  if (!session || session.status === 'expired' || packetInfo.seenAt >= session.expiresAt) {
     return;
   }
 
@@ -2946,6 +2943,11 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
     session.sender = sender;
   }
 
+  // Scope HMAC comparisons are receipt work, not general channel-traffic work.
+  // Keep the original wire payload and each observer's forwarded transport codes.
+  packetInfo.meshcoreScope = decodedGroup
+    ? recognizeMeshcoreScope(meshcoreScopes, parsePacketHex(raw))
+    : { state: 'unavailable', names: [] };
   if (recordReceipt(session, packetInfo)) {
     logger.debug(
       `[session] receipt ${session.code} from ${shortKey(packetInfo.observerKey)} (${messageHash || 'no-hash'})`,

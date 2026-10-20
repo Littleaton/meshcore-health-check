@@ -6,11 +6,19 @@ import fs from 'node:fs/promises';
 test('prior PWA worker upgrades the shell and caches every local vector asset', async ({ browser }) => {
   const previousWorker = await fs.readFile(new URL('../fixtures/sw-configured-defaults-13.js', import.meta.url), 'utf8');
   let upgraded = false;
+  let assetStatus = 200;
+  let failedAssetRequests = 0;
   const proxy = http.createServer(async (request, response) => {
     try {
       if (request.url === '/sw.js' && !upgraded) {
         response.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' });
         response.end(previousWorker);
+        return;
+      }
+      if (request.url === '/app.js' && assetStatus !== 200) {
+        failedAssetRequests += 1;
+        response.writeHead(assetStatus, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' });
+        response.end('temporary asset failure');
         return;
       }
       const upstream = await fetch(`http://127.0.0.1:3091${request.url}`);
@@ -46,10 +54,10 @@ test('prior PWA worker upgrades the shell and caches every local vector asset', 
     upgraded = true;
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
     await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 15000 }).toEqual([
-      'mesh-health-check-pwa-v1.4.0-scope-copy-22',
+      'mesh-health-check-pwa-v1.4.0-cache-recovery-23',
     ]);
     const cached = await page.evaluate(async () => {
-      const cache = await caches.open('mesh-health-check-pwa-v1.4.0-scope-copy-22');
+      const cache = await caches.open('mesh-health-check-pwa-v1.4.0-cache-recovery-23');
       return { paths: (await cache.keys()).map((request) => new URL(request.url).pathname), shell: await (await cache.match('/app')).text() };
     });
     expect(cached.paths).toEqual(expect.arrayContaining([
@@ -61,7 +69,28 @@ test('prior PWA worker upgrades the shell and caches every local vector asset', 
     expect(cached.shell).toContain('id="meshcore-scopes"');
     const source = await fs.readFile(new URL('../../public/app.js', import.meta.url), 'utf8');
     expect(await page.evaluate(async () => (await caches.match('/app.js')).text())).toBe(source);
-    expect(await page.evaluate(async () => (await (await caches.open('mesh-health-check-pwa-v1.4.0-scope-copy-22')).keys()).every((r) => new URL(r.url).origin === location.origin))).toBe(true);
+    expect(await page.evaluate(async () => (await (await caches.open('mesh-health-check-pwa-v1.4.0-cache-recovery-23')).keys()).every((r) => new URL(r.url).origin === location.origin))).toBe(true);
+    // Fetch through the controlling worker; a page route mock cannot inject worker network failures.
+    await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+    const readAsset = () => page.evaluate(async () => {
+      const response = await fetch('/app.js');
+      return { status: response.status, body: await response.text() };
+    });
+    assetStatus = 503;
+    expect(await readAsset()).toEqual({ status: 200, body: source });
+    expect(failedAssetRequests).toBeGreaterThan(0);
+    expect(await page.evaluate(async () => (await caches.match('/app.js')).text())).toBe(source);
+    await context.setOffline(true);
+    expect(await readAsset()).toEqual({ status: 200, body: source });
+    for (const path of ['/missing.js', '/missing.mjs', '/missing.css']) {
+      expect(await page.evaluate(async (url) => {
+        try { await fetch(url); return 'unexpected response'; } catch { return 'network error'; }
+      }, path)).toBe('network error');
+    }
+    await context.setOffline(false);
+    assetStatus = 404;
+    expect((await readAsset()).status).toBe(404);
+    expect(await page.evaluate(async () => (await caches.match('/app.js')).text())).toBe(source);
   } finally {
     await context.close();
     proxy.closeAllConnections();

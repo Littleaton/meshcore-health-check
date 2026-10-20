@@ -70,9 +70,19 @@ selection, the dashboard shows the next-code targets separately and offers
 
 ## Optional Longer Codes
 
+After any `.env` edit, recreate the service with the intended image already built
+or pulled:
+
+```bash
+docker compose up -d --no-build --pull never --force-recreate mesh-health-check
+```
+
+`docker compose restart` does not reload Compose environment-file values. See the
+[source-build and published-image upgrade steps](HOWTO.md#upgrading-to-v140).
+
 `ALLOW_LONGER_TEST_CODES=false` is the default for all installs: codes keep six
 hex characters after `MHC-` and no length slider is shown. Set it to `true` in
-`.env` and restart/recreate to offer **Code length** beside the code actions
+`.env` and recreate the Compose service to offer **Code length** beside the code actions
 (6-16, step 1, initially 6). Only newly generated codes use the selected suffix
 length; the current code, observer targets, history, persistence and shared
 results stay intact. Reload resets the slider to 6. This is not message padding.
@@ -81,7 +91,7 @@ results stay intact. Reload resets the slider to 6. This is not message padding.
 
 `BROWSER_LOCATION_ENABLED=true` (default) offers **Use my location** only as
 an explicit visitor action; it never requests permission on load. Set it to
-`false` in `.env` and restart/recreate the app to hide browser and approximate
+`false` in `.env` and recreate the Compose service to hide browser and approximate
 location controls and deny geolocation. **Use map center**, the search radius,
 region filters and manual observer selection remain available. Score guidance
 points to the available action. Regional guidance appears only when bootstrap

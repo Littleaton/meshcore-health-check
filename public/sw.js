@@ -1,5 +1,5 @@
 // Asset revision is independent of the release version; bump for shell changes.
-const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-scope-copy-22';
+const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-cache-recovery-23';
 const CORE_ASSETS = [
   '/',
   '/app',
@@ -38,30 +38,60 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+async function cachedResponse(request) {
+  try {
+    return await caches.match(request);
+  } catch {
+    return undefined;
+  }
+}
+
+async function storeResponse(request, response) {
+  const asset = /\.(?:m?js|css)$/.test(new URL(request.url).pathname);
+  if (!response.ok || response.redirected
+    || (asset && /(?:text\/html|application\/xhtml\+xml)/i.test(response.headers.get('Content-Type') || ''))) {
+    return;
+  }
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(request, response.clone());
+  } catch {
+    // Cache storage is best effort; never discard a successful network response.
+  }
+}
+
 async function cacheFirst(request) {
-  const cached = await caches.match(request);
+  const cached = await cachedResponse(request);
   if (cached) {
     return cached;
   }
   const response = await fetch(request);
-  const cache = await caches.open(CACHE_NAME);
-  cache.put(request, response.clone());
+  await storeResponse(request, response);
   return response;
 }
 
 async function networkFirst(request) {
+  let response;
   try {
-    const response = await fetch(new Request(request, { cache: 'no-store' }));
-    const cache = await caches.open(CACHE_NAME);
-    cache.put(request, response.clone());
-    return response;
-  } catch {
-    const cached = await caches.match(request);
+    response = await fetch(new Request(request, { cache: 'no-store' }));
+  } catch (error) {
+    const cached = await cachedResponse(request);
     if (cached) {
       return cached;
     }
-    return caches.match('/app');
+    // Only document navigations may fall back to the dashboard shell.
+    if (request.mode === 'navigate') {
+      const shell = await cachedResponse('/app');
+      if (shell) return shell;
+    }
+    throw error;
   }
+  if ([500, 502, 503, 504].includes(response.status)) {
+    const cached = await cachedResponse(request);
+    if (cached) return cached;
+  }
+  await storeResponse(request, response);
+  return response;
 }
 
 self.addEventListener('fetch', (event) => {

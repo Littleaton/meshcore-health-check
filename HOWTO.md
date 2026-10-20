@@ -111,9 +111,10 @@ the case-preserved hashtag name. Matching uses the installed
 ## Optional Longer Test Codes
 
 Leave `ALLOW_LONGER_TEST_CODES=false` (the default) for six hex characters after
-`MHC-`. To opt in, set `ALLOW_LONGER_TEST_CODES=true` in `.env` and restart/recreate
-the app. A **Code length** slider beside the code actions starts at 6 and allows
-6-16 characters in steps of 1, including odd lengths. Choose a length, then click
+`MHC-`. To opt in, set `ALLOW_LONGER_TEST_CODES=true` in `.env` and recreate
+the Compose service. A **Code length** slider beside the code actions starts at
+6 and allows 6-16 characters in steps of 1, including odd lengths. Choose a length,
+then click
 **New Code**. Moving the slider never changes the current code, saved targets,
 receipts, score or shared results. Newly generated codes, including automatic
 unused-code replacements after observer changes, use the selected length.
@@ -125,7 +126,7 @@ the app still does not transmit messages. Existing six-character codes remain va
 
 `BROWSER_LOCATION_ENABLED=true` (default) offers **Use my location** only as
 an explicit visitor action; it never requests permission on load. Set it to
-`false` in `.env` and restart/recreate the app to hide browser and approximate
+`false` in `.env` and recreate the Compose service to hide browser and approximate
 location controls and deny geolocation. **Use map center**, the search radius,
 region filters and manual observer selection remain available. Score guidance
 points to the available action. Regional guidance appears only when bootstrap

@@ -51,7 +51,7 @@ configuration, channel matching, observer selection and scoring are unaffected.
 | `LOG_LEVEL` | `info` | Use `debug` only while troubleshooting ingest or decode behavior. |
 | `TRUST_PROXY` | `1` | Express proxy trust setting. Use `1` behind one trusted reverse proxy or `false` for direct access so client IP rate limits cannot be spoofed with forwarded headers. |
 | `DISTANCE_UNIT` | `mi` | Distance labels for packet-path estimates and nearby observer distances/search radii. Use `mi` or `km`; the nearby radius uses that unit. |
-| `BROWSER_LOCATION_ENABLED` | `true` | Offer opt-in Use my location. False hides browser/approximate location controls, denies geolocation via Permissions-Policy, and points guidance to Use map center. Map-center, radius, region and manual selection remain available. Restart/recreate required. Blank uses the default; case-insensitive `1`, `true`, `yes`, `on` enable it; all other nonblank values disable it (the standard boolean parser). |
+| `BROWSER_LOCATION_ENABLED` | `true` | Offer opt-in Use my location. False hides browser/approximate location controls, denies geolocation via Permissions-Policy, and points guidance to Use map center. Map-center, radius, region and manual selection remain available. Recreate the Compose service after editing `.env`; restart alone does not reload it. Blank uses the default; case-insensitive `1`, `true`, `yes`, `on` enable it; all other nonblank values disable it (the standard boolean parser). |
 | `NEARBY_DEFAULT_RADIUS` | `100` | Initial/reload nearby radius in `DISTANCE_UNIT`. Allowed values: 5, 10, 15, 20, 25, 50, 75, 100, 150, 200. Other values fail startup with an explicit error. Snapshot updates preserve the visitor's choice. |
 
 No map key is required: dark mode defaults to OpenFreeMap, with MapLibre GL JS
@@ -111,7 +111,7 @@ The backend keeps packet handling scoped to the configured test channel.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `SESSION_TTL_SECONDS` | `600` | Active code lifetime. |
-| `ALLOW_LONGER_TEST_CODES` | `false` | Opt in to a Code length slider beside the code controls: 6-16 hex characters after `MHC-`, step 1, initially 6. False hides the slider and the server rejects non-6 requests. Only newly generated codes use the chosen length; retained codes, targets and results are unchanged. Restart/recreate required. Blank uses false; case-insensitive `1`, `true`, `yes`, `on` enable it; other nonblank values disable it. |
+| `ALLOW_LONGER_TEST_CODES` | `false` | Opt in to a Code length slider beside the code controls: 6-16 hex characters after `MHC-`, step 1, initially 6. False hides the slider and the server rejects non-6 requests. Only newly generated codes use the chosen length; retained codes, targets and results are unchanged. Recreate the Compose service after editing `.env`; restart alone does not reload it. Blank uses false; case-insensitive `1`, `true`, `yes`, `on` enable it; other nonblank values disable it. |
 | `RESULT_RETENTION_SECONDS` | `604800` | How long retained share results stay available. |
 | `MAX_USES_PER_CODE` | `3` | Maximum matching messages per generated code. |
 | `SESSION_RATE_WINDOW_SECONDS` | `600` | Rate-limit window for creating sessions. |

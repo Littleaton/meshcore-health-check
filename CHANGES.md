@@ -2,6 +2,14 @@
 
 ## v1.4.0
 
+- preserved good PWA assets across transient HTTP failures and offline use;
+  failed, redirected and HTML script/style responses no longer replace cached
+  assets, and missing offline scripts/modules/styles never receive dashboard HTML;
+  refreshed the cache revision and added real installed-worker regression coverage
+- corrected configuration guidance to require Compose service recreation after
+  `.env` edits, including longer-code and browser-location settings; restart
+  alone does not reload environment-file values
+
 - simplified MeshCore scope display: removed the explanatory UI note and show
   No scopes observed for empty results and unscoped packets
 - added optional local `MESHCORE_REGION_SCOPES_FILE` public-name YAML recognition

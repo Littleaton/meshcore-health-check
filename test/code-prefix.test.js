@@ -130,6 +130,7 @@ test('prefix normalization accepts only one to eight ASCII alphanumerics', async
     ['', 'MHC'], ['   ', 'MHC'], ['a', 'A'], ['12ab34cd', '12AB34CD'],
     [' nyhc ', 'NYHC'], ['ABCDEFGHI', 'MHC'], ['NY-HC', 'MHC'],
     ['NY_HC', 'MHC'], ['é', 'MHC'], ['你好', 'MHC'], ['A.B', 'MHC'],
+    ['ß', 'MHC'], ['ı', 'MHC'], ['ſ', 'MHC'],
   ]) {
     process.env.CODE_PREFIX = value;
     const loaded = await import(`${pathToFileURL(path.join(REPO_DIR, 'server.js')).href}?prefix-edge=${encodeURIComponent(value)}`);

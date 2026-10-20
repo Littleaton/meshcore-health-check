@@ -148,8 +148,8 @@ function normalizeSiteUrl(value) {
 }
 
 function normalizeCodePrefix(value) {
-  const normalized = String(value || '').trim().toUpperCase();
-  return /^[A-Z0-9]{1,8}$/.test(normalized) ? normalized : 'MHC';
+  const trimmed = String(value || '').trim();
+  return /^[A-Za-z0-9]{1,8}$/.test(trimmed) ? trimmed.toUpperCase() : 'MHC';
 }
 
 function normalizeDistanceUnit(value) {

@@ -10,6 +10,101 @@ that code.
 It does not transmit anything. It only watches MQTT, matches messages, and
 summarizes observer coverage.
 
+## Optional MeshCore Routing Scopes
+
+This is separate from geographic `INITIAL_REGION`, `ALLOWED_REGIONS` and map
+filters. Blank `MESHCORE_REGION_SCOPES_FILE` disables public-name matching.
+No region registry is shipped or fetched. To opt in from a source checkout:
+
+```bash
+cp region-scopes.example.yml region-scopes.yml
+# Edit regions: [] to a list of your own quoted public name strings.
+```
+
+The example is also packaged as `/app/region-scopes.example.yml` in the image.
+For an image-only install, copy it from a stopped disposable container with
+`docker create --name mhc-scope-example YOUR_IMAGE`,
+`docker cp mhc-scope-example:/app/region-scopes.example.yml ./region-scopes.yml`,
+then `docker rm mhc-scope-example`. Do not overwrite an existing operator file.
+`region-scopes.yml` is ignored by Git and the build context.
+
+Set this in your existing `.env` (do not replace it with `.env.example`):
+
+```dotenv
+MESHCORE_REGION_SCOPES_FILE=/app/config/region-scopes.yml
+```
+
+Only after creating the file, add an optional Compose override; do not add a
+missing-file bind to the default Compose configuration:
+
+```yaml
+services:
+  mesh-health-check:
+    volumes:
+      - type: bind
+        source: ./region-scopes.yml
+        target: /app/config/region-scopes.yml
+        read_only: true
+        bind:
+          create_host_path: false
+```
+
+Build the new source image with `docker compose build mesh-health-check`, or
+pull an explicitly selected published image containing this feature first.
+Recreate using your existing Compose files/overrides (include any extra `-f`
+arguments you normally use):
+
+```bash
+docker compose up -d --no-build --pull never --force-recreate mesh-health-check
+```
+
+Repeat recreation after editing the YAML; it is read once at startup.
+`docker compose restart` does not reload changed env-file values. Preserve all
+existing `.env`, data, logo mounts and overrides. Remove stale frontend binds
+that mask packaged UI updates. Verify `/api/bootstrap` contains
+`meshcoreScopes: {"enabled":true,"count":N}` and inspect Details/receipt info on
+a decoded received test-channel GroupText result. An empty list is valid
+(`enabled: true, count: 0`) but cannot recognize named scopes.
+
+The only YAML key is `regions`, a list of at most 1024 public strings; maximum
+file size is 65536 bytes and each name is at most 128 UTF-8 bytes. Quote names
+starting with `#` (otherwise YAML interprets them as comments). An implicit `#`
+is added, case is preserved, and duplicate normalized names are rejected.
+Malformed YAML, extra keys/documents, custom tags, aliases/anchors, nonstrings,
+empty names, whitespace/control characters, wildcards and `$` private names
+are rejected with `MESHCORE_REGION_SCOPES_FILE` startup errors. Missing,
+unreadable or nonregular configured files also fail startup, never silently
+disable recognition. Do not put private transport keys in this file.
+
+**Interpretation:** Details and share pages show distinct recorded MeshCore
+scope observations; each observer receipt preserves all distinct results even
+when the same message is forwarded with different transport scope. `known`
+means one configured public-name candidate, not proof of identity. `ambiguous`
+means multiple configured candidates, `unknown` means a scoped packet with no
+configured match (possibly an absent public name or private scope), and
+`unscoped` means an ordinary route or first transport code zero/wildcard.
+`disabled` means a scoped packet arrived while name matching was off;
+`unavailable` means the required decoded GroupText/raw payload was unavailable;
+`not-present` means legacy data without a recorded scope. No historical result
+is recalculated after a file change. Older records cannot be backfilled.
+
+Codes are 16-bit packet-dependent HMACs, **not stable region IDs**. Matching
+uses the original encrypted payload plus payload type and the first transport
+code via the installed decoder; the second code is not another named scope.
+It cannot infer repeater configured membership, geographic location or a
+globally fixed message region. Only successfully decoded received GroupText
+packets are evaluated; scoring, channel matching and observer selection do not
+depend on scope recognition. No RF transmission is performed.
+
+The wire semantics follow upstream firmware
+[`Packet.h`](https://github.com/meshcore-dev/MeshCore/blob/main/src/Packet.h),
+[`RegionMap.cpp`](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/RegionMap.cpp)
+and [`TransportKeyStore.cpp`](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/TransportKeyStore.cpp):
+route types 0/3 carry two codes, the first code selects a public-name candidate,
+zero is wildcard, and public-scope transport keys derive from the first 16 SHA-256 bytes of
+the case-preserved hashtag name. Matching uses the installed
+`@michaelhart/meshcore-decoder` implementation rather than a local HMAC copy.
+
 ## Optional Longer Test Codes
 
 Leave `ALLOW_LONGER_TEST_CODES=false` (the default) for six hex characters after

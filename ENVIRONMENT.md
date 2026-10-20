@@ -8,6 +8,30 @@ when the intended image is already built or pulled. `docker compose restart`
 alone does not reload Compose's `env_file` values. See the source-build and
 published-image upgrade paths in [HOWTO.md](HOWTO.md#upgrading-to-v140).
 
+## MeshCore routing scopes (not geographic map regions)
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MESHCORE_REGION_SCOPES_FILE` | blank | Optional readable local YAML file, loaded at startup. Blank disables public-name matching; configured missing/unreadable/invalid files fail startup. Sole key `regions` is a list of public region-name strings; `regions: []` is valid. Case preserved, implicit `#`, normalized duplicates rejected. No remote fetching or private `$` scopes/keys. |
+
+Limits: 65536-byte regular UTF-8 file, 1024 names, 128 UTF-8 bytes/name; no
+empty/whitespace/control/wildcard names, nonstrings, aliases/anchors, custom tags,
+extra mapping keys or documents. See [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes)
+for copying the empty example, read-only Docker bind and recreation steps.
+Changing this file requires recreation/restart; changing `.env` requires
+recreation, not just `docker compose restart`.
+
+Bootstrap exposes only `meshcoreScopes: {enabled, count}`, never the operator
+file path or configured list. Session API/persistence stores each observer's
+distinct `receipts[].meshcoreScopes` observations as `{state, names}` objects.
+States: `known` (one candidate), `ambiguous` (multiple), `unknown`, `unscoped`,
+`disabled`, `unavailable`, `not-present` (legacy). Names are the normalized
+matched public strings only; unknown/disabled/unavailable/unscoped/legacy use
+an empty names list. Stored results survive changed/disabled configuration and
+are never rematched on read/share. Candidate codes are packet-dependent 16-bit
+HMACs, not stable IDs or evidence of repeater membership. Geographic map
+configuration, channel matching, observer selection and scoring are unaffected.
+
 ## App
 
 | Variable | Default | Purpose |

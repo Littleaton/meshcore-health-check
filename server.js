@@ -11,6 +11,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
+import { loadMeshcoreScopes, recognizeMeshcoreScope, recordedMeshcoreScopes } from './lib/meshcore-scopes.js';
 import express from 'express';
 import mqtt from 'mqtt';
 import { WebSocketServer } from 'ws';
@@ -82,6 +83,8 @@ function envValue(name, fallback = '') {
   }
   return fallback;
 }
+
+const meshcoreScopes = loadMeshcoreScopes(envValue('MESHCORE_REGION_SCOPES_FILE'));
 
 function envNumber(name, fallback) {
   const raw = envValue(name, '');
@@ -898,6 +901,7 @@ function serializeSessionRecord(session) {
       count: Math.max(1, Number(receipt.count || 1)),
       topic: String(receipt.topic || ''),
       messageHash: normalizeMessageHash(receipt.messageHash),
+      meshcoreScopes: recordedMeshcoreScopes(receipt.meshcoreScopes),
       packetType: receipt.packetType,
       channelName: String(receipt.channelName || ''),
       rssi: Number.isFinite(Number(receipt.rssi)) ? Number(receipt.rssi) : null,
@@ -940,6 +944,7 @@ function restoreSessionRecord(rawSession) {
       count: Math.max(1, Number(rawReceipt?.count || 1)),
       topic: String(rawReceipt?.topic || ''),
       messageHash: normalizeMessageHash(rawReceipt?.messageHash || rawSession.messageHash || ''),
+      meshcoreScopes: recordedMeshcoreScopes(rawReceipt?.meshcoreScopes),
       packetType: rawReceipt?.packetType ?? null,
       channelName: String(rawReceipt?.channelName || rawSession.channelName || ''),
       rssi: Number.isFinite(Number(rawReceipt?.rssi)) ? Number(rawReceipt.rssi) : null,
@@ -1644,10 +1649,12 @@ function parsePacketHex(rawHex) {
   const payloadType = (header >> 2) & 0x0F;
   offset += 1;
 
+  let transportCodes = null;
   if (routeType === 0 || routeType === 3) {
     if (bytes.length < offset + 4) {
       return null;
     }
+    transportCodes = [bytes.readUInt16LE(offset), bytes.readUInt16LE(offset + 2)];
     offset += 4;
   }
 
@@ -1681,6 +1688,7 @@ function parsePacketHex(rawHex) {
   }
   return {
     routeType,
+    transportCodes,
     payloadType,
     pathHashSize: pathInfo.hashSize,
     path,
@@ -2275,6 +2283,7 @@ function serializeSession(session, request = null) {
         count: report.count,
         topic: report.topic,
         messageHash: report.messageHash,
+        meshcoreScopes: recordedMeshcoreScopes(report.meshcoreScopes),
         packetType: report.packetType,
         channelName: report.channelName,
         rssi: report.rssi,
@@ -2397,6 +2406,7 @@ function snapshotPayload() {
 
   return {
     serverTime: Date.now(),
+    meshcoreScopes: { enabled: meshcoreScopes.enabled, count: meshcoreScopes.regions.length },
     site: {
       title: APP_TITLE,
       version: APP_VERSION,
@@ -2700,6 +2710,11 @@ function recordReceipt(session, packetInfo) {
   const observer = observerState.get(packetInfo.observerKey);
   const label = observer?.name || shortKey(packetInfo.observerKey);
   if (existing) {
+    const scopes = recordedMeshcoreScopes(existing.meshcoreScopes);
+    if (!scopes.some(scope => JSON.stringify(scope) === JSON.stringify(packetInfo.meshcoreScope))) {
+      scopes.push(packetInfo.meshcoreScope);
+    }
+    existing.meshcoreScopes = scopes;
     existing.lastSeenAt = packetInfo.seenAt;
     existing.count += 1;
     existing.path = [...packetInfo.path];
@@ -2721,6 +2736,7 @@ function recordReceipt(session, packetInfo) {
     count: 1,
     topic: packetInfo.topic,
     messageHash: packetInfo.messageHash,
+    meshcoreScopes: [packetInfo.meshcoreScope],
     packetType: packetInfo.packetType,
     channelName: packetInfo.channelName,
     rssi: packetInfo.rssi,
@@ -2884,6 +2900,9 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
     channelHash,
     channelName,
     path,
+    meshcoreScope: decodedGroup
+      ? recognizeMeshcoreScope(meshcoreScopes, parsePacketHex(raw))
+      : { state: 'unavailable', names: [] },
     packetType: packet.payloadType,
     rssi: Number.isFinite(Number(envelope?.rssi)) ? Number(envelope.rssi) : null,
     snr: Number.isFinite(Number(envelope?.snr)) ? Number(envelope.snr) : null,

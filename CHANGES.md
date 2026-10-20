@@ -2,6 +2,16 @@
 
 ## v1.4.0
 
+- added optional local `MESHCORE_REGION_SCOPES_FILE` public-name YAML recognition
+  with strict bounded startup validation and a packaged empty/fictional example;
+  defaults to disabled, never fetches a registry or supports private keys
+- recorded distinct per-receipt MeshCore scope candidates/states across forwarding,
+  persistence and shares; Details and receipt info distinguish unknown, ambiguous,
+  unscoped, disabled, unavailable and legacy observations without changing scores,
+  channel matching, geographic regions or observer selection
+- added encrypted synthetic transport fixtures, actual short-code collision tests,
+  configuration/persistence and safe desktop/mobile/share coverage; refreshed PWA cache
+
 - clarified v1.4.0 upgrade and verification steps, environment-file recreation,
   fixed versus activity-ranked defaults, and unscored/unavailable result states
 - added opt-in `ALLOW_LONGER_TEST_CODES=false`: enabling it offers a 6-16

@@ -7,6 +7,42 @@ test('default install hides longer-code controls and generates six hex character
   await expect(page.getByRole('slider', { name: 'Code length' })).toHaveCount(0);
 });
 
+test('MeshCore scope observations render safely in Details, receipt info and shared results on mobile', async ({page}, testInfo) => {
+  await page.addInitScript(() => { window.WebSocket = class { addEventListener() {} close() {} }; });
+  await page.goto('/app');
+  await expect(page.locator('#session-code')).toHaveText(/^MHC-/);
+  const id = await page.evaluate(() => sessionStorage.getItem('mesh-health-check-session-id'));
+  const session = await (await page.request.get('/api/sessions/' + id)).json();
+  const dangerous = '#Fictional-<img src=x onerror="window.scopeXss=true">';
+  const scopes = [{state:'known', names:[dangerous]}, {state:'unscoped',names:[]}, {state:'ambiguous',names:['#Fictional-A','#Fictional-B']}, {state:'unknown',names:[]}, {state:'disabled',names:[]}, {state:'unavailable',names:[]}];
+  const retained = {...session, status:'active', useCount:1, observedCount:1, receipts:[{
+    observerKey:'1'.repeat(64), observerLabel:'Synthetic scope observer', observerShortKey:'111111', observerHash:'11', firstSeenAt:Date.now(), lastSeenAt:Date.now(), count:6, path:[], meshcoreScopes:scopes,
+  }]};
+  await page.route('**/api/sessions/' + id, route => route.fulfill({json:retained}));
+  await page.reload();
+  await page.locator('#session-details > summary').click();
+  await expect(page.locator('#meshcore-scopes')).toContainText(dangerous);
+  await expect(page.locator('#meshcore-scopes')).toContainText('Ambiguous');
+  await expect(page.locator('.receipt-scope')).toContainText('Unscoped');
+  await expect(page.locator('.receipt-scope')).toContainText('Scoped, unknown');
+  await expect(page.locator('.receipt-scope')).toContainText('Matching disabled');
+  await expect(page.locator('.receipt-scope')).toContainText('Unavailable');
+  expect(await page.evaluate(() => window.scopeXss)).toBeUndefined();
+  await expect(page.locator('.receipt-scope img')).toHaveCount(0);
+  for (const width of [1440,390]) {
+    await page.setViewportSize({width,height:1000});
+    await page.locator('#session-details').screenshot({path:testInfo.outputPath('scope-details-' + width + '.png')});
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.goto(session.sharePath);
+  await expect(page.locator('#meshcore-scopes')).toContainText(dangerous);
+  await expect(page.locator('.receipt-scope')).toContainText('#Fictional-B');
+  delete retained.receipts[0].meshcoreScopes;
+  await page.reload();
+  await expect(page.locator('#meshcore-scopes')).toHaveText('Not present (legacy receipt)');
+  await expect(page.locator('.receipt-scope')).toContainText('Not present (legacy receipt)');
+});
+
 // These proximity tests use synthetic observer/activity and geolocation fixtures,
 // not live MQTT reception or a physical device location.
 async function openNearbyFixture(page, { mode = 'success', rows, bootstrapOverrides = {} } = {}) {

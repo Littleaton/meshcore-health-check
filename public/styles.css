@@ -1613,6 +1613,11 @@ body[data-page-mode="share"] .hero-stage__brief .control-utility-actions a {
   margin: 0;
 }
 
+.receipt-scope,
+.scope-summary {
+  overflow-wrap: anywhere;
+}
+
 .receipt-meta {
   margin: 12px 0 0;
 }

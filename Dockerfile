@@ -11,6 +11,7 @@ COPY server.js ./
 COPY lib ./lib
 COPY public ./public
 COPY regions ./regions
+COPY region-scopes.example.yml ./
 COPY README.md HOWTO.md ENVIRONMENT.md AGENTS.md CHANGES.md ./
 
 ENV NODE_ENV=production

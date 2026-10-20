@@ -1668,7 +1668,35 @@ function renderObserverMap(session) {
   }, 0);
 }
 
+function meshcoreScopeText(scopes) {
+  if (!Array.isArray(scopes) || !scopes.length) return 'Not present (legacy receipt)';
+  return scopes.map(scope => {
+    const names = Array.isArray(scope.names) ? scope.names.join(', ') : '';
+    switch (scope.state) {
+      case 'known': return `Candidate ${names}`;
+      case 'ambiguous': return `Ambiguous: ${names}`;
+      case 'unscoped': return 'Unscoped (ordinary route or wildcard)';
+      case 'unknown': return 'Scoped, unknown';
+      case 'disabled': return 'Matching disabled (scoped)';
+      case 'not-present': return 'Not present (legacy receipt)';
+      default: return 'Unavailable';
+    }
+  }).join(' · ');
+}
+
+function renderMeshcoreScopes(session) {
+  const element = document.querySelector('#meshcore-scopes');
+  if (!element) return;
+  const receipts = session?.receipts || [];
+  const descriptions = receipts.flatMap(receipt =>
+    Array.isArray(receipt.meshcoreScopes) && receipt.meshcoreScopes.length
+      ? receipt.meshcoreScopes.map(scope => meshcoreScopeText([scope]))
+      : [meshcoreScopeText(null)]);
+  element.textContent = descriptions.length ? [...new Set(descriptions)].join(' · ') : 'Awaiting receipts';
+}
+
 function renderReceipts(session) {
+  renderMeshcoreScopes(session);
   const receipts = Array.isArray(session?.receipts) ? session.receipts : [];
   ui.receipts.innerHTML = '';
   ui.receiptsEmpty.classList.toggle('hidden', receipts.length > 0);
@@ -1726,6 +1754,7 @@ function renderReceipts(session) {
       <p class="receipt-meta">
         Seen ${receipt.count} time${receipt.count === 1 ? '' : 's'}${metrics ? ` · ${metrics}` : ''}
       </p>
+      <p class="receipt-meta receipt-scope">MeshCore scopes: ${escapeHtml(meshcoreScopeText(receipt.meshcoreScopes))}</p>
       <div class="receipt-meter-grid">
         <div class="receipt-meter">
           <span>Signal</span>

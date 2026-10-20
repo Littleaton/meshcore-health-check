@@ -27,7 +27,30 @@ Other community Health Checks:
 - tracks recent observer activity and can auto-select the top observers
 - supports region filters from GeoJSON boundary files
 - keeps retained `/share/:sessionId` result links
+- optionally recognizes public MeshCore routing-scope candidates from a local
+  YAML file; records distinct observations per receipt without changing scoring
 - supports Cloudflare Turnstile and installable PWA behavior
+
+## Optional MeshCore routing scopes
+
+`MESHCORE_REGION_SCOPES_FILE` defaults to blank (name matching disabled).
+Start with [region-scopes.example.yml](region-scopes.example.yml), which contains
+an empty `regions` list and fictional comments only. Set a readable container
+path to a local YAML mapping `regions: ["#Fictional-Cloud"]` using your own
+public names. Names are case-sensitive, and missing `#` is added. No registry is
+downloaded; private `$` scopes/keys are unsupported. See the read-only Docker
+mount and recreation instructions in [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes).
+
+Details, receipt info and shared results list recorded **MeshCore scopes**,
+not geographic map regions. A name is only a candidate among configured public
+names: short packet-dependent HMACs can collide. Unknown scoped packets need not
+be invalid; the name may be missing or private. Ambiguous means multiple
+configured names matched. Ordinary routes and transport wildcard zero are
+unscoped, disabled matching and unavailable payloads are explicit, and older
+receipts say not present. Forwarding can change a message's scope; all distinct
+observations survive persistence even when the YAML changes or is disabled.
+This cannot establish repeater membership, a globally fixed region, or sender
+intent. Channel matching, observer selection, RF matching and scores are unchanged.
 
 ## Dashboard workflow
 

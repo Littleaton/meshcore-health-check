@@ -2,6 +2,13 @@
 
 ## v1.4.0
 
+- added opt-in `ALLOW_LONGER_TEST_CODES=false`: enabling it offers a 6-16
+  hex-character suffix slider for new codes only; defaults remain six characters
+  with the slider hidden, and retained codes, targets, results and shares stay intact
+- exposed nonsecret `codeOptions` capabilities in bootstrap/snapshots and strictly
+  validated optional integer `codeLength` session requests; collision exhaustion
+  returns 503 instead of falling back to an unchecked or wrong-length code
+
 - moved the channel-send guidance out of collapsed Details and directly below
   the code actions so it stays visible beside Copy code on desktop and mobile
 

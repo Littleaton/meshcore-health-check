@@ -82,6 +82,11 @@
                     <button class="control-button ghost-button copy-button" id="share-session" type="button">
                       Share
                     </button>
+                    <div class="code-length-control" id="code-length-control" hidden>
+                      <label for="code-length">Code length <output id="code-length-value" for="code-length">6</output></label>
+                      <input id="code-length" type="range" min="6" max="16" step="1" value="6" aria-label="Code length" aria-describedby="code-length-note">
+                      <span id="code-length-note">Hex characters after MHC-. Applies to new codes only.</span>
+                    </div>
                   </div>
                 </div>
                 <p class="dock-lede lede">

@@ -346,6 +346,7 @@ const CORESCOPE_URL = normalizeSiteUrl(envValue('CORESCOPE_URL', ''));
 const CARTO_BASEMAP_KEY = envValue('CARTO_BASEMAP_KEY', '');
 const DISTANCE_UNIT = normalizeDistanceUnit(envValue('DISTANCE_UNIT', 'mi'));
 const BROWSER_LOCATION_ENABLED = envBool('BROWSER_LOCATION_ENABLED', true);
+const ALLOW_LONGER_TEST_CODES = envBool('ALLOW_LONGER_TEST_CODES', false);
 const NEARBY_DEFAULT_RADIUS = Number(envValue('NEARBY_DEFAULT_RADIUS', '100'));
 if (![5, 10, 15, 20, 25, 50, 75, 100, 150, 200].includes(NEARBY_DEFAULT_RADIUS)) {
   throw new Error('NEARBY_DEFAULT_RADIUS must be one of 5, 10, 15, 20, 25, 50, 75, 100, 150, 200 (in DISTANCE_UNIT)');
@@ -1844,19 +1845,19 @@ function decodeMeshPacket(rawHex) {
   }
 }
 
-function createCode() {
+function createCode(length) {
   const existingCodes = new Set(
     [...sessions.values()]
       .filter((session) => isRetainedSession(session))
       .map((session) => session.code),
   );
   for (let attempt = 0; attempt < 32; attempt += 1) {
-    const candidate = `MHC-${randomBytes(3).toString('hex').toUpperCase()}`;
+    const candidate = `MHC-${randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length).toUpperCase()}`;
     if (!existingCodes.has(candidate)) {
       return candidate;
     }
   }
-  return `MHC-${randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  return null;
 }
 
 function activeObserverKeys(now = Date.now()) {
@@ -2432,6 +2433,11 @@ function snapshotPayload() {
       distanceUnit: DISTANCE_UNIT,
       nearbyDefaultRadius: NEARBY_DEFAULT_RADIUS,
       browserLocationEnabled: BROWSER_LOCATION_ENABLED,
+    },
+    codeOptions: {
+      minLength: 6,
+      maxLength: ALLOW_LONGER_TEST_CODES ? 16 : 6,
+      defaultLength: 6,
     },
     results: {
       retentionSeconds: Math.round(RESULT_RETENTION_MS / 1000),
@@ -3047,6 +3053,12 @@ app.post(
     }
     const now = Date.now();
     const requestedKeys = request.body?.expectedObserverKeys;
+    const codeLength = request.body?.codeLength === undefined ? 6 : request.body.codeLength;
+    if (!Number.isInteger(codeLength) || codeLength < 6 || codeLength > 16
+      || (!ALLOW_LONGER_TEST_CODES && codeLength !== 6)) {
+      response.status(400).json({ error: 'invalid_code_length' });
+      return;
+    }
     if (geographicScopeEnabled && Array.isArray(requestedKeys)
       && requestedKeys.some((key) => !observerKeyInGeographicScope(normalizeKey(key)))) {
       response.status(400).json({ error: 'observer_outside_geographic_scope' });
@@ -3059,9 +3071,14 @@ app.post(
       response.status(400).json({ error: 'no_observers_in_geographic_scope' });
       return;
     }
+    const code = createCode(codeLength);
+    if (!code) {
+      response.status(503).json({ error: 'code_generation_exhausted' });
+      return;
+    }
     const session = {
       id: randomUUID(),
-      code: createCode(),
+      code,
       createdAt: now,
       expiresAt: now + SESSION_TTL_MS,
       status: 'waiting',

@@ -40,6 +40,15 @@ The score describes the current code's saved targets; if a used code has a diffe
 selection, the dashboard shows the next-code targets separately and offers
 **Generate new code**. The map follows your current selection, not historical targets.
 
+## Optional Longer Codes
+
+`ALLOW_LONGER_TEST_CODES=false` is the default for all installs: codes keep six
+hex characters after `MHC-` and no length slider is shown. Set it to `true` in
+`.env` and restart/recreate to offer **Code length** beside the code actions
+(6-16, step 1, initially 6). Only newly generated codes use the selected suffix
+length; the current code, observer targets, history, persistence and shared
+results stay intact. Reload resets the slider to 6. This is not message padding.
+
 ## Nearby Observer Selection
 
 `BROWSER_LOCATION_ENABLED=true` (default) offers **Use my location** only as

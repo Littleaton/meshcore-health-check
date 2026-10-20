@@ -923,6 +923,23 @@ body[data-page-mode="share"] .status-pill::before {
   align-content: start;
 }
 
+.code-length-control {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(70px, 1fr);
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+}
+
+.code-length-control[hidden] { display: none; }
+.code-length-control label { white-space: nowrap; }
+.code-length-control output { font-family: var(--font-mono); }
+.code-length-control input { width: 100%; min-width: 0; margin: 0; accent-color: var(--accent); }
+#code-length-note { grid-column: 1 / -1; }
+
 .control-utility-actions {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
@@ -3109,6 +3126,8 @@ body[data-page-mode="app"] .next-code-selection button { white-space: normal; te
 body[data-page-mode="app"] .marquee-layout { margin-top: 0; }
 body[data-page-mode="app"] .session-code-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 body[data-page-mode="app"] .session-code-actions > * { flex: 0 1 auto; }
+body[data-page-mode="app"] .session-code-row:has(.code-length-control:not([hidden])) { grid-template-columns: minmax(0, 1fr); }
+body[data-page-mode="app"] .session-code-actions > .code-length-control { flex: 1 1 100%; }
 body[data-page-mode="app"] .health-pocket__head h2 { font-size: clamp(1.4rem, 2vw, 2rem); line-height: 1.2; }
 body[data-page-mode="app"] .health-pocket__stats { grid-template-columns: 1fr; }
 body[data-page-mode="app"] .dashboard-grid {

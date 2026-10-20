@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+test('default install hides longer-code controls and generates six hex characters', async ({ page }) => {
+  await page.goto('/app');
+  await expect(page.locator('#session-code')).toHaveText(/^MHC-[A-F0-9]{6}$/);
+  await expect(page.locator('#code-length-control')).toBeHidden();
+  await expect(page.getByRole('slider', { name: 'Code length' })).toHaveCount(0);
+});
+
 // These proximity tests use synthetic observer/activity and geolocation fixtures,
 // not live MQTT reception or a physical device location.
 async function openNearbyFixture(page, { mode = 'success', rows, bootstrapOverrides = {} } = {}) {

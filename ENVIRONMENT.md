@@ -81,10 +81,19 @@ The backend keeps packet handling scoped to the configured test channel.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `SESSION_TTL_SECONDS` | `600` | Active code lifetime. |
+| `ALLOW_LONGER_TEST_CODES` | `false` | Opt in to a Code length slider beside the code controls: 6-16 hex characters after `MHC-`, step 1, initially 6. False hides the slider and the server rejects non-6 requests. Only newly generated codes use the chosen length; retained codes, targets and results are unchanged. Restart/recreate required. Blank uses false; case-insensitive `1`, `true`, `yes`, `on` enable it; other nonblank values disable it. |
 | `RESULT_RETENTION_SECONDS` | `604800` | How long retained share results stay available. |
 | `MAX_USES_PER_CODE` | `3` | Maximum matching messages per generated code. |
 | `SESSION_RATE_WINDOW_SECONDS` | `600` | Rate-limit window for creating sessions. |
 | `SESSION_RATE_MAX` | `30` | Max session creations per rate-limit window. |
+
+The nonsecret bootstrap/snapshot `codeOptions` object reports `minLength: 6`,
+`defaultLength: 6`, and `maxLength: 6` (disabled) or `16` (enabled). The optional
+`POST /api/sessions` JSON field `codeLength` must be a number that is an integer
+6-16; omitted means 6. Strings, null, fractions and out-of-range values return
+400 `invalid_code_length`, as do non-6 requests when disabled. Generation retries
+collisions without changing length; after 32 collisions it returns 503
+`code_generation_exhausted` so the visitor can retry. No existing code is replaced.
 
 ## Observers
 

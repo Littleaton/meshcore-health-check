@@ -14,6 +14,9 @@ const ui = {
   mqttPill: document.querySelector('#mqtt-pill'),
   installAppButton: document.querySelector('#install-app-button'),
   newSessionButton: document.querySelector('#new-session-button'),
+  codeLengthControl: document.querySelector('#code-length-control'),
+  codeLength: document.querySelector('#code-length'),
+  codeLengthValue: document.querySelector('#code-length-value'),
   copySessionCodeButton: document.querySelector('#copy-session-code'),
   shareSessionButton: document.querySelector('#share-session'),
   sessionCode: document.querySelector('#session-code'),
@@ -909,6 +912,7 @@ async function createSession() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         expectedObserverKeys: effectiveObserverKeysForCreate(),
+        ...(state.snapshot?.codeOptions?.maxLength === 16 ? { codeLength: Number(ui.codeLength.value) } : {}),
       }),
     });
     const session = await response.json();
@@ -2104,6 +2108,9 @@ function render() {
   }
   applyUiTheme();
   renderNearbySelection();
+  if (ui.codeLengthControl) {
+    ui.codeLengthControl.hidden = snapshot.codeOptions?.maxLength !== 16 || isSharePage();
+  }
 
   const channelLabel = `#${snapshot.testChannel.name}`;
   const historySessions = state.trackedSessionIds
@@ -2360,6 +2367,10 @@ async function bootstrap() {
   }
   connectSocket();
 }
+
+ui.codeLength?.addEventListener('input', () => {
+  ui.codeLengthValue.value = ui.codeLength.value;
+});
 
 ui.newSessionButton.addEventListener('click', () => {
   createSession();

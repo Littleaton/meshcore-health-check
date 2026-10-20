@@ -4,7 +4,8 @@
 
 - added optional local `MESHCORE_REGION_SCOPES_FILE` public-name YAML recognition
   with strict bounded startup validation and a packaged empty/fictional example;
-  defaults to disabled, never fetches a registry or supports private keys
+  defaults to disabled, never fetches a registry or supports private keys;
+  documented optional YAML mounting, configuration and upgrade verification
 - recorded distinct per-receipt MeshCore scope candidates/states across forwarding,
   persistence and shares; single matches display the scope name directly without
   a Candidate prefix. Details and receipt info distinguish unknown, ambiguous,

@@ -79,8 +79,9 @@ disable recognition. Do not put private transport keys in this file.
 **Interpretation:** Details and share pages show distinct recorded MeshCore
 scope observations; each observer receipt preserves all distinct results even
 when the same message is forwarded with different transport scope. `known`
-means one configured public-name candidate, not proof of identity. `ambiguous`
-means multiple configured candidates, `unknown` means a scoped packet with no
+means one configured public-name candidate, not proof of identity; the UI displays
+just the matched name, without a Candidate prefix. `ambiguous` retains an explicit
+label and means multiple configured candidates, `unknown` means a scoped packet with no
 configured match (possibly an absent public name or private scope), and
 `unscoped` means an ordinary route or first transport code zero/wildcard.
 `disabled` means a scoped packet arrived while name matching was off;
@@ -359,6 +360,11 @@ The new settings are optional:
 - `BROWSER_LOCATION_ENABLED=true`: browser location remains opt-in per visitor.
   Set `false` to hide it while keeping map-center and manual selection.
 - `NEARBY_DEFAULT_RADIUS=100`: choose a supported radius in `DISTANCE_UNIT`.
+- `MESHCORE_REGION_SCOPES_FILE=`: leave blank to disable routing-scope name
+  recognition. To opt in, copy the empty example, add your own public names,
+  and configure the read-only YAML mount described under
+  [MeshCore routing scopes](#optional-meshcore-routing-scopes). No public
+  region list is included, and existing receipts are not backfilled.
 
 Review `ALLOWED_REGION_GROUPS`, `ALLOWED_REGIONS` and `INITIAL_REGION` for regional
 sites. Fixed `KNOWN_OBSERVERS` defaults remain supported when `INITIAL_REGION`

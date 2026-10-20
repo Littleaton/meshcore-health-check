@@ -42,7 +42,9 @@ downloaded; private `$` scopes/keys are unsupported. See the read-only Docker
 mount and recreation instructions in [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes).
 
 Details, receipt info and shared results list recorded **MeshCore scopes**,
-not geographic map regions. A name is only a candidate among configured public
+not geographic map regions. A single match displays just its name, without a
+Candidate prefix; multiple matches retain the **Ambiguous** label.
+A name is only a candidate among configured public
 names: short packet-dependent HMACs can collide. Unknown scoped packets need not
 be invalid; the name may be missing or private. Ambiguous means multiple
 configured names matched. Ordinary routes and transport wildcard zero are

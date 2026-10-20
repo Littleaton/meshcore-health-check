@@ -26,9 +26,11 @@ file path or configured list. Session API/persistence stores each observer's
 distinct `receipts[].meshcoreScopes` observations as `{state, names}` objects.
 States: `known` (one candidate), `ambiguous` (multiple), `unknown`, `unscoped`,
 `disabled`, `unavailable`, `not-present` (legacy). Names are the normalized
-matched public strings only; unknown/disabled/unavailable/unscoped/legacy use
-an empty names list. Stored results survive changed/disabled configuration and
-are never rematched on read/share. Candidate codes are packet-dependent 16-bit
+matched public strings only; the UI displays a single `known` name directly,
+without a Candidate prefix, while `ambiguous` keeps its explicit label.
+Unknown/disabled/unavailable/unscoped/legacy use an empty names list. Stored
+results survive changed/disabled configuration and are never rematched on
+read/share. Transport codes are packet-dependent 16-bit
 HMACs, not stable IDs or evidence of repeater membership. Geographic map
 configuration, channel matching, observer selection and scoring are unaffected.
 

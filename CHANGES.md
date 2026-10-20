@@ -1,5 +1,114 @@
 # Changes
 
+## v1.4.0
+
+- added `CODE_PREFIX` to customize new test code prefixes, for example
+  `CUSTOM-1A2B3C`; defaults and invalid values use `MHC`
+
+- aligned scope-name validation with firmware character/storage limits, rejecting
+  incompatible names instead of silently allowing unmatchable configurations
+- prepared public region keys once and deferred scope matching to eligible
+  session receipts; expired mapped messages no longer add late receipts
+- preserved good PWA assets across transient HTTP failures and offline use;
+  failed, redirected and HTML script/style responses no longer replace cached
+  assets, and missing offline scripts/modules/styles never receive dashboard HTML;
+  refreshed the cache revision and added real installed-worker regression coverage
+- corrected configuration guidance to require Compose service recreation after
+  `.env` edits, including longer-code and browser-location settings; restart
+  alone does not reload environment-file values
+
+- simplified MeshCore scope display: removed the explanatory UI note and show
+  No scopes observed for empty results and unscoped packets
+- added optional local `MESHCORE_REGION_SCOPES_FILE` public-name YAML recognition
+  with strict bounded startup validation and a packaged empty/fictional example;
+  defaults to disabled, never fetches a registry or supports private keys;
+  documented optional YAML mounting, configuration and upgrade verification
+- recorded distinct per-receipt MeshCore scope candidates/states across forwarding,
+  persistence and shares; single matches display the scope name directly without
+  a Candidate prefix. Details and receipt info distinguish unknown, ambiguous,
+  unscoped, disabled, unavailable and legacy observations without changing scores,
+  channel matching, geographic regions or observer selection
+- added encrypted synthetic transport fixtures, actual short-code collision tests,
+  configuration/persistence and safe desktop/mobile/share coverage; refreshed PWA cache
+
+- clarified v1.4.0 upgrade and verification steps, environment-file recreation,
+  fixed versus activity-ranked defaults, and unscored/unavailable result states
+- added opt-in `ALLOW_LONGER_TEST_CODES=false`: enabling it offers a 6-16
+  hex-character suffix slider for new codes only; defaults remain six characters
+  with the slider hidden, and retained codes, targets, results and shares stay intact
+- exposed nonsecret `codeOptions` capabilities in bootstrap/snapshots and strictly
+  validated optional integer `codeLength` session requests; collision exhaustion
+  returns 503 instead of falling back to an unchecked or wrong-length code
+
+- moved the channel-send guidance out of collapsed Details and directly below
+  the code actions so it stays visible beside Copy code on desktop and mobile
+
+- fixed CARTO hostname-authorized tiles by sending only the site origin on
+  CARTO image requests; retained the global no-referrer policy and existing
+  Turnstile protection without exposing dashboard/share paths or query strings
+- distinguished signal readings that are still pending from matched messages
+  without RSSI/SNR data, which now show Signal data unavailable
+- added keyless OpenFreeMap dark coverage maps with locally served MapLibre and
+  full provider/data attribution; retained optional configured CARTO Dark Matter
+  and OpenStreetMap light maps, with raster fallback when vector rendering fails
+- pinned MapLibre to patched 6.4.1, fixing the attribution sanitizer advisory;
+  loaded its ESM renderer before the Leaflet bridge, with WebGL2 fallback
+- included the local renderer, shared module and module worker in PWA upgrades without caching
+  external map resources; updated privacy and operator guidance for OpenFreeMap
+- made Default Set restore configured fixed observer keys and clear temporary
+  region filters when fixed defaults are active; activity-ranked defaults retain
+  their selected-region behavior
+- updated Express to 5.3.0 and transitive proxy-addr to 2.0.8, including
+  fixes to proxy trust handling and HTTP response headers
+- updated dotenv to 18.0.7, ws to 8.22.0 and transitive ip-address to 10.7.3
+  for environment parsing, WebSocket fixes and IP address validation fixes
+- updated Playwright browser testing to 1.64.0
+- moved Docker image publishing from a self-hosted runner to GitHub-hosted
+  Ubuntu runners, retaining Docker Hub tags, amd64 builds and build caching
+- added `BROWSER_LOCATION_ENABLED=true` to retain opt-in browser location by
+  default; disabling it hides location/approximate controls and denies browser
+  geolocation while preserving map-center, radius and manual observer choices
+- added guidance beside the score explaining why activity-ranked defaults may
+  not suit the visitor's location, with nearby selection and a map-center
+  alternative when browser location is disabled; regional wording and a region
+  selection suggestion appear only when usable region options are available
+- focused the dashboard on the active code, Copy code and channel instructions;
+  observer customization and secondary diagnostics now open on demand
+- showed unmatched checks as Awaiting message and unscored, including history,
+  while preserving measured scores and historical shared-result targets
+- distinguished current-code targets from the next selection, with an explicit
+  Generate new code action when a used code targets a different observer set
+- preserved previous nearby distances and the blue origin while a changed radius
+  is pending; cancelled location requests so late fixes cannot replace the selection
+- added optional browser-location and map-center selection of up to 10 nearest
+  active observers, with distance labels and adjustable search radii using
+  `DISTANCE_UNIT=mi|km` and `NEARBY_DEFAULT_RADIUS=100`; radii span 5 to 200
+  with finer steps, and invalid positions and stale activity are excluded
+- added a small blue map dot for the chosen browser location or map center,
+  shown only after a nearby-location action and cleared with that selection
+- added bounded 12-second high-accuracy refinement retaining the best browser
+  estimate, explicit acceptance for coarse fixes, browser-reported accuracy, and
+  labeled map-center fallback when permission or positioning is unavailable;
+  location is requested only on click and proximity does not guarantee RF coverage
+- added `ALLOWED_REGION_GROUPS` and `ALLOWED_REGIONS` to scope website observers
+  using bundled or custom GeoJSON worldwide, without filtering MQTT ingestion;
+  invalid configuration and out-of-scope new session targets are rejected
+- added `INITIAL_REGION` independently of the allowed area; initial defaults rank
+  activity within that region, while Default Set ranks within the currently
+  selected region using `OBSERVER_TOP_COUNT`
+- made nearby, manual and region selections temporary: reload restores the site's
+  initial defaults, while retained session targets, scoring and shared results
+  remain unchanged; the dashboard map follows the current selection
+- added a public Privacy page linked from dashboard and verification footers,
+  explaining browser-only device-coordinate processing, local storage, retained
+  results, verification cookies and third-party map/location providers
+- updated PWA asset refresh behavior, responsive map controls, operator guides
+  and environment examples for the new selection workflow; expanded observer
+  controls have separated filters/results and stack at tablet and mobile widths
+- expanded unit/API and browser coverage for geographic scope, ranked defaults,
+  region/reload map transitions, location permission and accuracy, privacy access,
+  mobile layout and service-worker upgrades
+
 ## v1.3.9
 
 - standardized Docker, CI, and local validation on Node 24, with matching

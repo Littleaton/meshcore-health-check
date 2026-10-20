@@ -7,8 +7,15 @@ export default defineConfig({
   use: {
     browserName: 'chromium',
     headless: true,
+    // Exercise the real WebGL renderer on GPU-less CI hosts.
+    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
   },
   projects: [
+    {
+      name: 'code-length',
+      testMatch: /code-length\.spec\.js/,
+      use: { baseURL: 'http://127.0.0.1:3093', serviceWorkers: 'block' },
+    },
     {
       name: 'dashboard',
       testMatch: /dashboard\.spec\.js/,
@@ -26,6 +33,11 @@ export default defineConfig({
     },
   ],
   webServer: [
+    {
+      command: 'PORT=3093 CODE_PREFIX=NYHC1234 ALLOW_LONGER_TEST_CODES=true MESH_HEALTH_DISABLE_RUNTIME=true TURNSTILE_ENABLED=false OBSERVERS_FILE=./test/fixtures/observer-smoke.json KNOWN_OBSERVERS=AF07FC2005E04D08DDA921E64985E62201BF974AE0B0E35084B804229ED11A2B,01F0E86393494B0BE83E3D93BD528456DE39F389B9DCF802BC90B21F66EA88A6 node ./scripts/start-test-server.js',
+      url: 'http://127.0.0.1:3093/api/bootstrap',
+      reuseExistingServer: false,
+    },
     {
       command: 'PORT=3091 MESH_HEALTH_DISABLE_RUNTIME=true TURNSTILE_ENABLED=false APP_TITLE=\"MeshCore Observer Coverage\" APP_EYEBROW=\"MeshCore Observer Coverage\" OBSERVERS_FILE=./test/fixtures/observer-smoke.json KNOWN_OBSERVERS=AF07FC2005E04D08DDA921E64985E62201BF974AE0B0E35084B804229ED11A2B,01F0E86393494B0BE83E3D93BD528456DE39F389B9DCF802BC90B21F66EA88A6 node ./scripts/start-test-server.js',
       url: 'http://127.0.0.1:3091/api/bootstrap',

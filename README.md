@@ -27,7 +27,118 @@ Other community Health Checks:
 - tracks recent observer activity and can auto-select the top observers
 - supports region filters from GeoJSON boundary files
 - keeps retained `/share/:sessionId` result links
+- optionally recognizes public MeshCore routing-scope candidates from a local
+  YAML file; records distinct observations per receipt without changing scoring
 - supports Cloudflare Turnstile and installable PWA behavior
+
+## Optional MeshCore routing scopes
+
+`MESHCORE_REGION_SCOPES_FILE` defaults to blank (name matching disabled).
+Start with [region-scopes.example.yml](region-scopes.example.yml), which contains
+an empty `regions` list and fictional comments only. Set a readable container
+path to a local YAML mapping `regions: ["#Fictional-Cloud"]` using your own
+public names. Names are case-sensitive, and missing `#` is added. Names must
+fit firmware storage: 30 UTF-8 bytes as written, including an explicit `#`;
+invalid punctuation such as `.` or `/` and oversized names fail startup rather
+than being truncated. Public region keys are prepared once; matching runs only
+for eligible session receipts, not unrelated channel traffic. No registry is
+downloaded; private `$` scopes/keys are unsupported. See the read-only Docker
+mount and recreation instructions in [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes).
+
+Details, receipt info and shared results list recorded **MeshCore scopes**,
+not geographic map regions. A single match displays just its name, without a
+Candidate prefix; multiple matches retain the **Ambiguous** label.
+A name is only a candidate among configured public
+names: short packet-dependent HMACs can collide. Unknown scoped packets need not
+be invalid; the name may be missing or private. Ambiguous means multiple
+configured names matched. Ordinary routes and transport wildcard zero are
+unscoped, disabled matching and unavailable payloads are explicit, and older
+receipts say not present. Forwarding can change a message's scope; all distinct
+observations survive persistence even when the YAML changes or is disabled.
+This cannot establish repeater membership, a globally fixed region, or sender
+intent. Channel matching, observer selection, RF matching and scores are unchanged.
+
+## Dashboard workflow
+
+Copy the active code and send it to the displayed MeshCore channel. Checks show
+**Awaiting message** without a score until a matching message is observed.
+Channel-send guidance stays visible below the code actions. **Details** contains
+secondary diagnostics, including the message hash and broker. A matched message
+without usable RSSI/SNR shows **Signal data unavailable**, not pending telemetry;
+its observer coverage can still be scored.
+
+Open **Change observers** above the map for regional, manual or nearby selection.
+The score describes the current code's saved targets; if a used code has a different
+selection, the dashboard shows the next-code targets separately and offers
+**Generate new code**. The map follows your current selection, not historical targets.
+
+## Optional Longer Codes
+
+After any `.env` edit, recreate the service with the intended image already built
+or pulled:
+
+```bash
+docker compose up -d --no-build --pull never --force-recreate mesh-health-check
+```
+
+`docker compose restart` does not reload Compose environment-file values. See the
+[source-build and published-image upgrade steps](HOWTO.md#upgrading-to-v140).
+
+`ALLOW_LONGER_TEST_CODES=false` is the default for all installs: codes keep six
+hex characters after `MHC-` and no length slider is shown. Set it to `true` in
+`.env` and recreate the Compose service to offer **Code length** beside the code actions
+(6-16, step 1, initially 6). Only newly generated codes use the selected suffix
+length; the current code, observer targets, history, persistence and shared
+results stay intact. Reload resets the slider to 6. This is not message padding.
+
+## Nearby Observer Selection
+
+`BROWSER_LOCATION_ENABLED=true` (default) offers **Use my location** only as
+an explicit visitor action; it never requests permission on load. Set it to
+`false` in `.env` and recreate the Compose service to hide browser and approximate
+location controls and deny geolocation. **Use map center**, the search radius,
+region filters and manual observer selection remain available. Score guidance
+points to the available action. Regional guidance appears only when bootstrap
+provides usable regions, naming the selected region/group or all available
+regions. It also suggests choosing a region under **Change observers** when
+usable region options exist; a globally unconfigured instance makes no regional claim.
+Activity-ranked defaults are not necessarily the best fit for the visitor's exact
+location, and neither activity nor proximity guarantees radio coverage.
+
+Every reload starts with the website-configured default observer set. Nearby,
+manual and region choices are temporary; location is optional and only requested
+on click. Used session history remains available without changing the next-code defaults.
+
+Under **Change observers**, open the nearby controls and click **Use my location**
+when enabled to select up to 10 nearest active
+observers within the displayed radius (`NEARBY_DEFAULT_RADIUS=100` by default;
+options 5, 10, 15, 20, 25, 50, 75, 100, 150 and 200 in `DISTANCE_UNIT=mi|km`). No permission is requested on page load. **Use map center** lets you pan
+to an area without sharing device location; it is also the labeled fallback if
+geolocation fails or requires HTTPS. Distances use the same environment-configured unit as packet estimates, but are straight-line distances, not
+radio-path estimates: **proximity does not guarantee RF coverage**.
+
+Selection uses recent packet activity, not merely saved observer metadata.
+Missing/stale activity and invalid coordinates are excluded. If nothing qualifies,
+your previous selection stays unchanged. Manual, region and Default Set controls
+remain available. An unused code may be regenerated as in the existing selection
+workflow; a used code keeps its target and the selection applies to the next code.
+The app never transmits for you.
+
+Precise device coordinates are only used for browser-side distance calculations;
+they are not stored or sent to the backend. Only selected observer keys follow
+the normal session workflow. See [HOWTO.md](HOWTO.md#select-nearby-observers) for
+activity rules, privacy boundaries and troubleshooting.
+
+
+Location refinement lasts at most 12 seconds and keeps the most accurate fix. A
+fix within 1 km reported accuracy can finish early; coarser or unknown accuracy
+requires **Use approximate location** or **Use map center** without changing
+targets automatically. Desktop network estimates cannot be made into GPS by this
+app. Changing radius, region or manual targets cancels pending location work.
+The pending fix is memory-only and discarded on acceptance, cancellation or reload.
+Changing radius keeps the last distance results, selected observers and blue search
+origin visible until another search is applied; the status marks the new radius as
+not applied. Region/manual changes clear the nearby search context.
 
 ## Quick Start
 
@@ -54,10 +165,14 @@ At minimum, configure MQTT and the test channel in `.env`:
 - `MQTT_TOPIC`
 - `TEST_CHANNEL_NAME`
 - `TEST_CHANNEL_SECRET` or `TEST_CHANNEL_HASH`
-- `CARTO_BASEMAP_KEY` to enable CARTO Dark Matter coverage-map tiles
+
+No map key is required. Optionally set `CARTO_BASEMAP_KEY` to retain CARTO
+Dark Matter raster tiles instead of the default OpenFreeMap dark map.
 
 For full setup steps, read [HOWTO.md](HOWTO.md). For every runtime variable,
-read [ENVIRONMENT.md](ENVIRONMENT.md).
+read [ENVIRONMENT.md](ENVIRONMENT.md). Existing deployments should follow the
+[v1.4.0 upgrade checklist](HOWTO.md#upgrading-to-v140) to preserve configuration
+and state, reconcile frontend overrides, and recreate the service after env edits.
 
 ## Project Layout
 
@@ -82,7 +197,8 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
 - Keep `data/` mounted if observer profiles, observer activity, and share links
   must survive rebuilds.
 - Leave `KNOWN_OBSERVERS` blank to let the app auto-select the top recent
-  observers. Set it to full pubkeys for a fixed default target set.
+  observers. Fixed `KNOWN_OBSERVERS` defaults apply only when `INITIAL_REGION`
+  is blank; an initial region uses activity-ranked defaults instead.
 - Set `OBSERVER_RETENTION_SECONDS=0` to keep known observers visible regardless
   of age.
 - Share links use retained server-side results and remain available until
@@ -91,11 +207,30 @@ read [ENVIRONMENT.md](ENVIRONMENT.md).
   change the actual MQTT connection.
 - `CORESCOPE_URL` changes the matched message-hash link to CoreScope
   `#/packets/<hash>` routes.
-- `CARTO_BASEMAP_KEY` enables CARTO Dark Matter tiles. Without it, the coverage
-  map falls back to OpenStreetMap while the dark dashboard theme remains usable.
-- `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` controls packet distance labels.
+- Dark maps default to keyless OpenFreeMap via locally served MapLibre GL JS
+  6.4.1 and Leaflet bridge 0.1.4. Style, tiles, sprites and fonts come from
+  `tiles.openfreemap.org`; full provider/data attribution stays visible.
+  `CARTO_BASEMAP_KEY` optionally selects CARTO Dark Matter raster tiles instead.
+  Those tile images send only the site origin for CARTO hostname authorization;
+  other requests retain the global no-referrer policy.
+- Light maps use OpenStreetMap raster tiles, also used as the fallback when
+  WebGL or the vector provider fails. Leaflet markers, popups and nearby controls
+  remain available. The PWA caches local renderer assets, not external map tiles.
+- `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` controls packet distance labels,
+  nearby distances, and search radii. Browser location accuracy uses the configured distance unit.
+
+- `CODE_PREFIX` sets the test code prefix, for example `CODE_PREFIX=CUSTOM`
+  produces codes like `CUSTOM-1A2B3C`.
 
 ## Runtime and dependency maintenance
+
+MapLibre is pinned to 6.4.1, which fixes the attribution sanitizer bypass
+GHSA-jrc7-96c5-q579. Its ESM renderer, shared module and native module worker
+are served locally; the loader initializes the Leaflet bridge before the app.
+Same-origin workers need neither `blob:` nor `unsafe-eval` CSP permissions.
+WebGL2 is required; unsupported browsers and failed optional renderer assets
+fall back to OpenStreetMap. Keep fixed trusted attribution in Leaflet rather
+than inserting provider attribution HTML or using MapLibre popup controls.
 
 Docker and CI use Node 24. For local checks, use Node 24 (`nvm use` reads
 `.nvmrc`); other Node majors are not supported.
@@ -132,3 +267,59 @@ build loading cleanly across module formats.
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yellowcooln/meshcore-health-check&type=date&legend=top-left" />
  </picture>
 </a>
+
+## Geographic website scope
+
+These settings work worldwide with bundled or custom GeoJSON boundaries. They
+match region labels, not the website title or MQTT topic codes. For example,
+`REGION_NAME_PROPERTY=title` reads a custom feature's `properties.title`; use that
+exact value in `ALLOWED_REGIONS` and `INITIAL_REGION`. Group labels come from
+`REGION_GROUP_PROPERTY`.
+
+`ALLOWED_REGION_GROUPS` and `ALLOWED_REGIONS` are comma-separated, exact,
+case-sensitive labels from `REGIONS_FILE` (using `REGION_GROUP_PROPERTY` and
+`REGION_NAME_PROPERTY`). Both blank means unrestricted. When both are set,
+matching either list is sufficient (union, not intersection).
+
+For example, allow New England and initially select Massachusetts:
+
+```env
+REGIONS_FILE=regions/us-states.geojson
+ALLOWED_REGION_GROUPS=New England
+ALLOWED_REGIONS=
+INITIAL_REGION=Massachusetts
+```
+
+Scope filters the observer directory, region options, configured/dynamic defaults,
+map and nearby candidates, and new custom session targets. Unknown or unlocated
+observers are excluded while scope is enabled. Unknown configured labels or
+missing/unreadable boundaries fail startup clearly. Out-of-scope custom targets
+return HTTP 400 (`observer_outside_geographic_scope`); no default candidates
+returns HTTP 400 (`no_observers_in_geographic_scope`), never an unrestricted
+session. Existing retained results, target sets and scoring are not rewritten.
+MQTT ingestion/subscriptions are unchanged: this is not an IATA whitelist, and
+stored observer metadata is not deleted. Restart the container after editing.
+
+### Initial region and Default Set
+
+Set `INITIAL_REGION=Massachusetts` with `ALLOWED_REGION_GROUPS=New England`
+and blank `ALLOWED_REGIONS` to start/reload in Massachusetts while keeping all
+New England regions available, including nearby selection. `INITIAL_REGION`
+is one exact GeoJSON region label (blank preserves the
+existing default). Unknown labels, missing boundaries, or defaults outside the
+allowed scope fail startup. No matching defaults never falls back outside that area.
+
+With `INITIAL_REGION` set, initial defaults rank recent activity inside the
+configured region before applying `OBSERVER_TOP_COUNT` (10); if there is no ranked
+history, active observers in that area are used. This takes precedence over fixed
+`KNOWN_OBSERVERS`; fixed keys remain the legacy default only with no initial region.
+With fixed `KNOWN_OBSERVERS` defaults and no `INITIAL_REGION`, **Default Set**
+clears temporary region/group filters and restores that configured pubkey list.
+With activity-ranked defaults, it uses recent top observers within the currently
+selected region (active-window fallback when no history) and preserves that region.
+Reload restores the site's initial defaults. Region buttons may select all
+observers there; Default Set narrows them to the applicable default set.
+No precise device coordinates are stored or sent to the server.
+Location requests a fresh high-accuracy estimate and displays browser-reported
+accuracy in the configured distance unit; GPS accuracy is not guaranteed. The public `/privacy` page
+explains local storage, retained results, verification cookies and map providers.

@@ -11,6 +11,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
+import { loadMeshcoreScopes, recognizeMeshcoreScope, recordedMeshcoreScopes } from './lib/meshcore-scopes.js';
 import express from 'express';
 import mqtt from 'mqtt';
 import { WebSocketServer } from 'ws';
@@ -83,6 +84,8 @@ function envValue(name, fallback = '') {
   return fallback;
 }
 
+const meshcoreScopes = loadMeshcoreScopes(envValue('MESHCORE_REGION_SCOPES_FILE'));
+
 function envNumber(name, fallback) {
   const raw = envValue(name, '');
   if (!raw) {
@@ -142,6 +145,11 @@ function normalizeSiteUrl(value) {
   } catch {
     return '';
   }
+}
+
+function normalizeCodePrefix(value) {
+  const trimmed = String(value || '').trim();
+  return /^[A-Za-z0-9]{1,8}$/.test(trimmed) ? trimmed.toUpperCase() : 'MHC';
 }
 
 function normalizeDistanceUnit(value) {
@@ -345,6 +353,13 @@ const SITE_URL = normalizeSiteUrl(envValue('SITE_URL', ''));
 const CORESCOPE_URL = normalizeSiteUrl(envValue('CORESCOPE_URL', ''));
 const CARTO_BASEMAP_KEY = envValue('CARTO_BASEMAP_KEY', '');
 const DISTANCE_UNIT = normalizeDistanceUnit(envValue('DISTANCE_UNIT', 'mi'));
+const CODE_PREFIX = normalizeCodePrefix(envValue('CODE_PREFIX', 'MHC'));
+const BROWSER_LOCATION_ENABLED = envBool('BROWSER_LOCATION_ENABLED', true);
+const ALLOW_LONGER_TEST_CODES = envBool('ALLOW_LONGER_TEST_CODES', false);
+const NEARBY_DEFAULT_RADIUS = Number(envValue('NEARBY_DEFAULT_RADIUS', '100'));
+if (![5, 10, 15, 20, 25, 50, 75, 100, 150, 200].includes(NEARBY_DEFAULT_RADIUS)) {
+  throw new Error('NEARBY_DEFAULT_RADIUS must be one of 5, 10, 15, 20, 25, 50, 75, 100, 150, 200 (in DISTANCE_UNIT)');
+}
 const PWA_APP_NAME = 'Mesh Reach';
 const REPO_URL = 'https://github.com/yellowcooln/meshcore-health-check';
 const EXTERNAL_LINK_URL = normalizeSiteUrl(envValue('EXTERNAL_LINK_URL', ''));
@@ -671,6 +686,48 @@ function loadRegionBoundaries() {
 }
 
 const regionBoundaries = loadRegionBoundaries();
+const allowedRegionGroups = envList('ALLOWED_REGION_GROUPS');
+const allowedRegions = envList('ALLOWED_REGIONS');
+const geographicScopeEnabled = allowedRegionGroups.length > 0 || allowedRegions.length > 0;
+const initialRegion = String(process.env.INITIAL_REGION || '').trim();
+const defaultRegions = initialRegion ? [initialRegion] : [];
+const geographicDefaultsEnabled = defaultRegions.length > 0;
+if (geographicScopeEnabled || geographicDefaultsEnabled) {
+  if (regionBoundaries.length === 0) {
+    throw new Error('Geographic scope requires a readable REGIONS_FILE with region boundaries');
+  }
+  for (const [setting, labels, property] of [
+    ['ALLOWED_REGION_GROUPS', allowedRegionGroups, 'group'],
+    ['ALLOWED_REGIONS', allowedRegions, 'name'],
+    ['INITIAL_REGION', defaultRegions, 'name'],
+  ]) {
+    const known = new Set(regionBoundaries.map((boundary) => boundary[property]));
+    const unknown = labels.filter((label) => !known.has(label));
+    if (unknown.length) throw new Error(`Geographic scope: unknown ${setting} labels: ${unknown.join(', ')}`);
+  }
+}
+
+if (geographicScopeEnabled) {
+  const outside = defaultRegions.filter((region) => regionBoundaries
+    .filter((boundary) => boundary.name === region)
+    .some((boundary) => !allowedRegions.includes(region) && !allowedRegionGroups.includes(boundary.group)));
+  if (outside.length) throw new Error(`Geographic scope: INITIAL_REGION outside allowed scope: ${outside.join(', ')}`);
+}
+
+function observerKeyInDefaultScope(key) {
+  if (!observerKeyInGeographicScope(key)) return false;
+  if (!geographicDefaultsEnabled) return true;
+  const observer = observerState.get(key) || observerProfiles.get(key);
+  return defaultRegions.includes(deriveRegionInfo(observer?.lat, observer?.lon).region);
+}
+
+// Scope is a website selection boundary, never an MQTT ingestion filter.
+function observerKeyInGeographicScope(key) {
+  if (!geographicScopeEnabled) return true;
+  const observer = observerState.get(key) || observerProfiles.get(key);
+  const info = deriveRegionInfo(observer?.lat, observer?.lon);
+  return Boolean(info.region && (allowedRegions.includes(info.region) || allowedRegionGroups.includes(info.regionGroup)));
+}
 
 function deriveRegionInfo(lat, lon) {
   if (lat == null || lon == null || regionBoundaries.length === 0) {
@@ -850,6 +907,7 @@ function serializeSessionRecord(session) {
       count: Math.max(1, Number(receipt.count || 1)),
       topic: String(receipt.topic || ''),
       messageHash: normalizeMessageHash(receipt.messageHash),
+      meshcoreScopes: recordedMeshcoreScopes(receipt.meshcoreScopes),
       packetType: receipt.packetType,
       channelName: String(receipt.channelName || ''),
       rssi: Number.isFinite(Number(receipt.rssi)) ? Number(receipt.rssi) : null,
@@ -892,6 +950,7 @@ function restoreSessionRecord(rawSession) {
       count: Math.max(1, Number(rawReceipt?.count || 1)),
       topic: String(rawReceipt?.topic || ''),
       messageHash: normalizeMessageHash(rawReceipt?.messageHash || rawSession.messageHash || ''),
+      meshcoreScopes: recordedMeshcoreScopes(rawReceipt?.meshcoreScopes),
       packetType: rawReceipt?.packetType ?? null,
       channelName: String(rawReceipt?.channelName || rawSession.channelName || ''),
       rssi: Number.isFinite(Number(rawReceipt?.rssi)) ? Number(rawReceipt.rssi) : null,
@@ -1596,10 +1655,12 @@ function parsePacketHex(rawHex) {
   const payloadType = (header >> 2) & 0x0F;
   offset += 1;
 
+  let transportCodes = null;
   if (routeType === 0 || routeType === 3) {
     if (bytes.length < offset + 4) {
       return null;
     }
+    transportCodes = [bytes.readUInt16LE(offset), bytes.readUInt16LE(offset + 2)];
     offset += 4;
   }
 
@@ -1633,6 +1694,7 @@ function parsePacketHex(rawHex) {
   }
   return {
     routeType,
+    transportCodes,
     payloadType,
     pathHashSize: pathInfo.hashSize,
     path,
@@ -1797,25 +1859,25 @@ function decodeMeshPacket(rawHex) {
   }
 }
 
-function createCode() {
+function createCode(length) {
   const existingCodes = new Set(
     [...sessions.values()]
       .filter((session) => isRetainedSession(session))
       .map((session) => session.code),
   );
   for (let attempt = 0; attempt < 32; attempt += 1) {
-    const candidate = `MHC-${randomBytes(3).toString('hex').toUpperCase()}`;
+    const candidate = `${CODE_PREFIX}-${randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length).toUpperCase()}`;
     if (!existingCodes.has(candidate)) {
       return candidate;
     }
   }
-  return `MHC-${randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+  return null;
 }
 
 function activeObserverKeys(now = Date.now()) {
   const keys = [];
   for (const observer of observerState.values()) {
-    if (now - observer.lastPacketAt <= OBSERVER_ACTIVE_WINDOW_MS) {
+    if (now - observer.lastPacketAt <= OBSERVER_ACTIVE_WINDOW_MS && observerKeyInGeographicScope(observer.key)) {
       keys.push(observer.key);
     }
   }
@@ -1828,11 +1890,12 @@ function observerDisplayLabelForKey(observerKey) {
   return String(observer?.name || profile?.name || shortKey(observerKey));
 }
 
-function topObserverKeys(now = Date.now()) {
+function topObserverKeys(now = Date.now(), matches = observerKeyInDefaultScope) {
   const dayKeys = new Set(recentUtcDayKeys(OBSERVER_TOP_WINDOW_DAYS, now));
   const ranked = [];
 
   for (const [key, entry] of observerActivityHistory.entries()) {
+    if (!matches(key)) continue;
     const lastPacketAt = Math.max(0, Number(entry?.lastPacketAt || 0));
     if (OBSERVER_RETENTION_MS > 0 && (!lastPacketAt || now - lastPacketAt > OBSERVER_RETENTION_MS)) {
       continue;
@@ -1870,9 +1933,9 @@ function topObserverKeys(now = Date.now()) {
 }
 
 function defaultObserverTarget(now = Date.now()) {
-  if (KNOWN_OBSERVERS.length > 0) {
+  if (!geographicDefaultsEnabled && KNOWN_OBSERVERS.length > 0) {
     return {
-      keys: [...KNOWN_OBSERVERS],
+      keys: KNOWN_OBSERVERS.filter(observerKeyInDefaultScope),
       source: 'configured',
     };
   }
@@ -1884,7 +1947,7 @@ function defaultObserverTarget(now = Date.now()) {
     };
   }
   return {
-    keys: activeObserverKeys(now),
+    keys: activeObserverKeys(now).filter(observerKeyInDefaultScope),
     source: 'active-window',
   };
 }
@@ -1960,7 +2023,7 @@ function observerDirectory() {
   const now = Date.now();
   const defaultKeys = new Set(defaultObserverTarget().keys);
   return [...observerState.values()]
-    .filter((observer) => observerIsRetained(observer, now))
+    .filter((observer) => observerIsRetained(observer, now) && observerKeyInGeographicScope(observer.key))
     .sort((left, right) => {
       const leftDefault = defaultKeys.has(left.key) ? 1 : 0;
       const rightDefault = defaultKeys.has(right.key) ? 1 : 0;
@@ -2226,6 +2289,7 @@ function serializeSession(session, request = null) {
         count: report.count,
         topic: report.topic,
         messageHash: report.messageHash,
+        meshcoreScopes: recordedMeshcoreScopes(report.meshcoreScopes),
         packetType: report.packetType,
         channelName: report.channelName,
         rssi: report.rssi,
@@ -2348,6 +2412,7 @@ function snapshotPayload() {
 
   return {
     serverTime: Date.now(),
+    meshcoreScopes: { enabled: meshcoreScopes.enabled, count: meshcoreScopes.regions.length },
     site: {
       title: APP_TITLE,
       version: APP_VERSION,
@@ -2367,7 +2432,7 @@ function snapshotPayload() {
     },
     map: {
       cartoBasemapKey: CARTO_BASEMAP_KEY,
-      darkBasemapAvailable: Boolean(CARTO_BASEMAP_KEY),
+      darkBasemapAvailable: true,
     },
     turnstile: {
       enabled: TURNSTILE_ENABLED,
@@ -2382,10 +2447,34 @@ function snapshotPayload() {
       topCount: OBSERVER_TOP_COUNT,
       hashDisplayBytes: OBSERVER_HASH_DISPLAY_BYTES,
       distanceUnit: DISTANCE_UNIT,
+      nearbyDefaultRadius: NEARBY_DEFAULT_RADIUS,
+      browserLocationEnabled: BROWSER_LOCATION_ENABLED,
+    },
+    codeOptions: {
+      prefix: CODE_PREFIX,
+      minLength: 6,
+      maxLength: ALLOW_LONGER_TEST_CODES ? 16 : 6,
+      defaultLength: 6,
     },
     results: {
       retentionSeconds: Math.round(RESULT_RETENTION_MS / 1000),
     },
+    defaultRegions,
+    topObserverKeys: (() => {
+      const keys = new Set(directory.map((o) => o.key));
+      const ranked = topObserverKeys(Date.now(), (key) => keys.has(key));
+      return ranked.length ? ranked : activeObserverKeys().filter((key) => keys.has(key)).slice(0, OBSERVER_TOP_COUNT);
+    })(),
+    topObserverKeysByGroup: Object.fromEntries([...new Set(directory.map((o) => o.regionGroup).filter(Boolean))].map((group) => {
+      const keys = new Set(directory.filter((o) => o.regionGroup === group).map((o) => o.key));
+      const ranked = topObserverKeys(Date.now(), (key) => keys.has(key));
+      return [group, ranked.length ? ranked : activeObserverKeys().filter((key) => keys.has(key)).slice(0, OBSERVER_TOP_COUNT)];
+    })),
+    topObserverKeysByRegion: Object.fromEntries([...new Set(directory.map((o) => o.region).filter(Boolean))].map((region) => {
+      const keys = new Set(directory.filter((o) => o.region === region).map((o) => o.key));
+      const ranked = topObserverKeys(Date.now(), (key) => keys.has(key));
+      return [region, ranked.length ? ranked : activeObserverKeys().filter((key) => keys.has(key)).slice(0, OBSERVER_TOP_COUNT)];
+    })),
     defaultObserverKeys: defaultTarget.keys,
     defaultObservers,
     defaultObserverSource: defaultTarget.source,
@@ -2628,6 +2717,11 @@ function recordReceipt(session, packetInfo) {
   const observer = observerState.get(packetInfo.observerKey);
   const label = observer?.name || shortKey(packetInfo.observerKey);
   if (existing) {
+    const scopes = recordedMeshcoreScopes(existing.meshcoreScopes);
+    if (!scopes.some(scope => JSON.stringify(scope) === JSON.stringify(packetInfo.meshcoreScope))) {
+      scopes.push(packetInfo.meshcoreScope);
+    }
+    existing.meshcoreScopes = scopes;
     existing.lastSeenAt = packetInfo.seenAt;
     existing.count += 1;
     existing.path = [...packetInfo.path];
@@ -2649,6 +2743,7 @@ function recordReceipt(session, packetInfo) {
     count: 1,
     topic: packetInfo.topic,
     messageHash: packetInfo.messageHash,
+    meshcoreScopes: [packetInfo.meshcoreScope],
     packetType: packetInfo.packetType,
     channelName: packetInfo.channelName,
     rssi: packetInfo.rssi,
@@ -2841,7 +2936,7 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
   if (!session && messageHash && messageToSession.has(messageHash)) {
     session = sessions.get(messageToSession.get(messageHash)) || null;
   }
-  if (!session || session.status === 'expired') {
+  if (!session || session.status === 'expired' || packetInfo.seenAt >= session.expiresAt) {
     return;
   }
 
@@ -2855,6 +2950,11 @@ function handlePacketMessage(topic, observerKey, payloadBuffer) {
     session.sender = sender;
   }
 
+  // Scope HMAC comparisons are receipt work, not general channel-traffic work.
+  // Keep the original wire payload and each observer's forwarded transport codes.
+  packetInfo.meshcoreScope = decodedGroup
+    ? recognizeMeshcoreScope(meshcoreScopes, parsePacketHex(raw))
+    : { state: 'unavailable', names: [] };
   if (recordReceipt(session, packetInfo)) {
     logger.debug(
       `[session] receipt ${session.code} from ${shortKey(packetInfo.observerKey)} (${messageHash || 'no-hash'})`,
@@ -2872,7 +2972,7 @@ app.use((request, response, next) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Frame-Options', 'DENY');
   response.setHeader('Referrer-Policy', 'no-referrer');
-  response.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=()');
+  response.setHeader('Permissions-Policy', `camera=(), geolocation=(${BROWSER_LOCATION_ENABLED ? 'self' : ''}), microphone=()`);
   if (request.path.startsWith('/api/') || request.path.startsWith('/share/')) {
     response.setHeader('Cache-Control', 'no-store');
   }
@@ -2881,14 +2981,15 @@ app.use((request, response, next) => {
     [
       "default-src 'self'",
       "base-uri 'self'",
-      "connect-src 'self' ws: wss:",
+      "connect-src 'self' ws: wss: https://tiles.openfreemap.org",
       "form-action 'self'",
       "frame-ancestors 'none'",
       "frame-src https://challenges.cloudflare.com",
-      "img-src 'self' data: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
+      "img-src 'self' data: blob: https://tiles.openfreemap.org https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com",
       "object-src 'none'",
       "script-src 'self' https://challenges.cloudflare.com",
       "style-src 'self' 'unsafe-inline'",
+      "worker-src 'self'",
     ].join('; '),
   );
   if (request.secure) {
@@ -2899,6 +3000,10 @@ app.use((request, response, next) => {
   }
   next();
 });
+app.get('/privacy', (request, response) => {
+  response.sendFile(path.join(APP_DIR, 'public/privacy.html'));
+});
+
 app.get('/manifest.webmanifest', (request, response) => {
   response.type('application/manifest+json').send(JSON.stringify({
     name: PWA_APP_NAME,
@@ -2927,6 +3032,8 @@ app.get('/manifest.webmanifest', (request, response) => {
   }));
 });
 app.use('/vendor/leaflet', express.static(path.join(APP_DIR, 'node_modules/leaflet/dist'), { index: false }));
+app.use('/vendor/maplibre', express.static(path.join(APP_DIR, 'node_modules/maplibre-gl/dist'), { index: false }));
+app.use('/vendor/maplibre-leaflet', express.static(path.join(APP_DIR, 'node_modules/@maplibre/maplibre-gl-leaflet'), { index: false }));
 app.use(express.static(path.join(APP_DIR, 'public'), { index: false }));
 
 app.get('/api/bootstrap', (request, response) => {
@@ -2973,12 +3080,33 @@ app.post(
       return;
     }
     const now = Date.now();
-    const requestedAllowlist = explicitObserverAllowlist(request.body?.expectedObserverKeys);
+    const requestedKeys = request.body?.expectedObserverKeys;
+    const codeLength = request.body?.codeLength === undefined ? 6 : request.body.codeLength;
+    if (!Number.isInteger(codeLength) || codeLength < 6 || codeLength > 16
+      || (!ALLOW_LONGER_TEST_CODES && codeLength !== 6)) {
+      response.status(400).json({ error: 'invalid_code_length' });
+      return;
+    }
+    if (geographicScopeEnabled && Array.isArray(requestedKeys)
+      && requestedKeys.some((key) => !observerKeyInGeographicScope(normalizeKey(key)))) {
+      response.status(400).json({ error: 'observer_outside_geographic_scope' });
+      return;
+    }
+    const requestedAllowlist = explicitObserverAllowlist(requestedKeys);
     const defaultExpected = expectedObserversForSession();
     const expected = requestedAllowlist.enabled ? requestedAllowlist : defaultExpected;
+    if ((geographicScopeEnabled || geographicDefaultsEnabled) && expected.keys.length === 0) {
+      response.status(400).json({ error: 'no_observers_in_geographic_scope' });
+      return;
+    }
+    const code = createCode(codeLength);
+    if (!code) {
+      response.status(503).json({ error: 'code_generation_exhausted' });
+      return;
+    }
     const session = {
       id: randomUUID(),
-      code: createCode(),
+      code,
       createdAt: now,
       expiresAt: now + SESSION_TTL_MS,
       status: 'waiting',
@@ -2991,7 +3119,7 @@ app.post(
       sender: '',
       channelHash: '',
       channelName: '',
-      allowlistEnabled: requestedAllowlist.enabled,
+      allowlistEnabled: requestedAllowlist.enabled || geographicScopeEnabled,
       expectedObserverKeys: expected.keys.length > 0 ? expected.keys : [],
       expectedObserverSource: expected.source || '',
       receipts: new Map(),

@@ -460,7 +460,7 @@ When path hops can be matched to observers with coordinates, the app estimates
 distance between those observers and shows the longest packet-path distance for
 the check. Set `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` to choose the displayed
 unit. Set `CODE_PREFIX` to brand the generated test codes for your mesh, for
-example `CODE_PREFIX=NYHC` produces codes like `NYHC-1A2B3C`; existing codes and
+example `CODE_PREFIX=CUSTOM` produces codes like `CUSTOM-1A2B3C`; existing codes and
 share links keep working because matching uses each session's full code. The
 prefix is trimmed and uppercased; only 1-8 ASCII letters or digits are accepted,
 and invalid values use `MHC`. It does not count toward the optional 6-16 hex

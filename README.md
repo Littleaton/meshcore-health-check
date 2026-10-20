@@ -219,8 +219,8 @@ and state, reconcile frontend overrides, and recreate the service after env edit
 - `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` controls packet distance labels,
   nearby distances, and search radii. Browser location accuracy uses the configured distance unit.
 
-- `CODE_PREFIX` sets the test code prefix, for example `CODE_PREFIX=NYHC`
-  produces codes like `NYHC-1A2B3C`.
+- `CODE_PREFIX` sets the test code prefix, for example `CODE_PREFIX=CUSTOM`
+  produces codes like `CUSTOM-1A2B3C`.
 
 ## Runtime and dependency maintenance
 

@@ -2451,6 +2451,7 @@ function snapshotPayload() {
       browserLocationEnabled: BROWSER_LOCATION_ENABLED,
     },
     codeOptions: {
+      prefix: CODE_PREFIX,
       minLength: 6,
       maxLength: ALLOW_LONGER_TEST_CODES ? 16 : 6,
       defaultLength: 6,

@@ -54,10 +54,10 @@ test('prior PWA worker upgrades the shell and caches every local vector asset', 
     upgraded = true;
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration()).update());
     await expect.poll(() => page.evaluate(() => caches.keys()), { timeout: 15000 }).toEqual([
-      'mesh-health-check-pwa-v1.4.0-cache-recovery-23',
+      'mesh-health-check-pwa-v1.4.0-code-prefix-24',
     ]);
     const cached = await page.evaluate(async () => {
-      const cache = await caches.open('mesh-health-check-pwa-v1.4.0-cache-recovery-23');
+      const cache = await caches.open('mesh-health-check-pwa-v1.4.0-code-prefix-24');
       return { paths: (await cache.keys()).map((request) => new URL(request.url).pathname), shell: await (await cache.match('/app')).text() };
     });
     expect(cached.paths).toEqual(expect.arrayContaining([
@@ -69,7 +69,7 @@ test('prior PWA worker upgrades the shell and caches every local vector asset', 
     expect(cached.shell).toContain('id="meshcore-scopes"');
     const source = await fs.readFile(new URL('../../public/app.js', import.meta.url), 'utf8');
     expect(await page.evaluate(async () => (await caches.match('/app.js')).text())).toBe(source);
-    expect(await page.evaluate(async () => (await (await caches.open('mesh-health-check-pwa-v1.4.0-cache-recovery-23')).keys()).every((r) => new URL(r.url).origin === location.origin))).toBe(true);
+    expect(await page.evaluate(async () => (await (await caches.open('mesh-health-check-pwa-v1.4.0-code-prefix-24')).keys()).every((r) => new URL(r.url).origin === location.origin))).toBe(true);
     // Fetch through the controlling worker; a page route mock cannot inject worker network failures.
     await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
     const readAsset = () => page.evaluate(async () => {

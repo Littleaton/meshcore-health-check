@@ -26,6 +26,7 @@ process.env.RESULTS_FILE = resultsFile;
 process.env.TEST_CHANNEL_NAME = 'health-check';
 process.env.TEST_CHANNEL_SECRET = 'E6D973AAC5101145AD3A3F3A0B3D52EB';
 process.env.CODE_PREFIX = ' nyhc ';
+process.env.ALLOW_LONGER_TEST_CODES = 'false';
 
 const packetFixture = JSON.parse(
   fs.readFileSync(path.join(TEST_DIR, 'fixtures/grouptext-message.json'), 'utf8'),
@@ -95,6 +96,14 @@ test('codes with a custom CODE_PREFIX match channel messages', async () => {
   });
   const created = await createResponse.json();
 
+  const wrongEnvelope = buildGroupTextEnvelope({
+    secretHex: process.env.TEST_CHANNEL_SECRET, sender: packetFixture.sender,
+    message: `X${created.code} ${created.code}0`,
+    messageHash: '0123456789ABCDEF', timestamp: packetFixture.timestamp, path: packetFixture.path,
+  });
+  ingestMqttMessage(`meshcore/BOS/${packetFixture.observerKeys[0]}/packets`, Buffer.from(JSON.stringify(wrongEnvelope)));
+  assert.equal((await (await fetch(`${baseUrl}/api/sessions/${created.id}`)).json()).observedCount, 0);
+
   const message = packetFixture.messageTemplate.replace('{code}', created.code);
   const envelope = buildGroupTextEnvelope({
     secretHex: process.env.TEST_CHANNEL_SECRET,
@@ -113,4 +122,26 @@ test('codes with a custom CODE_PREFIX match channel messages', async () => {
   const session = await sessionResponse.json();
   assert.equal(session.messageBody, message);
   assert.equal(session.observedCount, 1);
+});
+
+
+test('prefix normalization accepts only one to eight ASCII alphanumerics', async () => {
+  for (const [value, expected] of [
+    ['', 'MHC'], ['   ', 'MHC'], ['a', 'A'], ['12ab34cd', '12AB34CD'],
+    [' nyhc ', 'NYHC'], ['ABCDEFGHI', 'MHC'], ['NY-HC', 'MHC'],
+    ['NY_HC', 'MHC'], ['é', 'MHC'], ['你好', 'MHC'], ['A.B', 'MHC'],
+  ]) {
+    process.env.CODE_PREFIX = value;
+    const loaded = await import(`${pathToFileURL(path.join(REPO_DIR, 'server.js')).href}?prefix-edge=${encodeURIComponent(value)}`);
+    await new Promise(resolve => loaded.server.listen(0, '127.0.0.1', resolve));
+    const url = `http://127.0.0.1:${loaded.server.address().port}`;
+    try {
+      const bootstrap = await (await fetch(`${url}/api/bootstrap`)).json();
+      assert.equal(bootstrap.codeOptions.prefix, expected, JSON.stringify(value));
+      const created = await (await fetch(`${url}/api/sessions`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).json();
+      assert.match(created.code, new RegExp(`^${expected}-[0-9A-F]{6}$`));
+    } finally {
+      await new Promise(resolve => loaded.server.close(resolve));
+    }
+  }
 });

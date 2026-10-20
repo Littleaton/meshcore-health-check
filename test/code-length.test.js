@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 
 for (const setting of ['', 'false', 'true']) {
+  const prefix = setting === 'true' ? 'NYHC1234' : 'MHC';
   test(`code length API, RF matching and persistence (ALLOW_LONGER_TEST_CODES=${setting || 'default'})`, () => {
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import assert from 'node:assert/strict';
@@ -22,9 +23,9 @@ for (const setting of ['', 'false', 'true']) {
       const create = (body) => fetch(base + '/api/sessions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       try {
         const bootstrap = await (await fetch(base + '/api/bootstrap')).json();
-        assert.deepEqual(bootstrap.codeOptions, { minLength: 6, maxLength: ${setting === 'true' ? 16 : 6}, defaultLength: 6 });
+        assert.deepEqual(bootstrap.codeOptions, { prefix: '${prefix}', minLength: 6, maxLength: ${setting === 'true' ? 16 : 6}, defaultLength: 6 });
         const legacy = await (await create({})).json();
-        assert.match(legacy.code, /^MHC-[0-9A-F]{6}$/);
+        assert.match(legacy.code, /^${prefix}-[0-9A-F]{6}$/);
         for (const codeLength of [null, '6', '7', ' 7 ', '', true, false, [], {}, 6.5, 5, 17, -1, 0]) {
           const response = await create({ codeLength });
           assert.equal(response.status, 400, 'invalid length ' + JSON.stringify(codeLength));
@@ -37,7 +38,7 @@ for (const setting of ['', 'false', 'true']) {
           assert.equal(response.status, ${setting === 'true'} || length === 6 ? 201 : 400, 'length ' + length);
           if (response.status !== 201) continue;
           const session = await response.json();
-          assert.match(session.code, new RegExp('^MHC-[0-9A-F]{' + length + '}$'));
+          assert.match(session.code, new RegExp('^${prefix}-[0-9A-F]{' + length + '}$'));
           assert.deepEqual(session.expectedObservers.map(o => o.key), [key]);
           // Actual encrypted RF fixture: no message padding, match the complete variable code.
           const envelope = buildGroupTextEnvelope({ secretHex: process.env.TEST_CHANNEL_SECRET, sender: 'Length Test', message: session.code, messageHash: length.toString(16).padStart(16, '0'), timestamp: 1760000000 + length });
@@ -54,20 +55,28 @@ for (const setting of ['', 'false', 'true']) {
         syncBuiltinESMExports();
         const length = ${setting === 'true' ? 15 : 6};
         const first = await (await create({ codeLength: length })).json();
-        assert.equal(first.code, 'MHC-' + 'AB'.repeat(8).slice(0, length));
+        assert.equal(first.code, '${prefix}-' + 'AB'.repeat(8).slice(0, length));
         const collision = await create({ codeLength: length });
         assert.equal(collision.status, 503);
         flushScheduledWrites();
         const saved = JSON.parse(fs.readFileSync(process.env.RESULTS_FILE, 'utf8'));
         assert.ok(saved.sessions.some(s => s.code === legacy.code));
-        assert.ok(saved.sessions.some(s => s.code.length === 4 + length));
+        assert.ok(saved.sessions.some(s => s.code.length === ${prefix.length + 1} + length));
         // Disabling the capability after a restart must not invalidate retained longer results.
         process.env.ALLOW_LONGER_TEST_CODES = 'false';
+        process.env.CODE_PREFIX = 'CHANGED';
         const reloaded = await import('./server.js?reload');
         await new Promise(resolve => reloaded.server.listen(0, '127.0.0.1', resolve));
         const reloadBase = 'http://127.0.0.1:' + reloaded.server.address().port;
         const restored = await (await fetch(reloadBase + '/api/sessions/' + first.id)).json();
         assert.equal(restored.code, first.code);
+        assert.equal((await (await fetch(reloadBase + '/api/bootstrap')).json()).codeOptions.prefix, 'CHANGED');
+        assert.match((await (await fetch(reloadBase + '/share/' + first.id)).text()), /session-code/);
+        const oldCodeEnvelope = buildGroupTextEnvelope({ secretHex: process.env.TEST_CHANNEL_SECRET, sender: 'Prefix Restart', message: first.code, messageHash: 'abcdef0123456789', timestamp: 1760000100 });
+        reloaded.ingestMqttMessage('meshcore/BOS/' + key + '/packets', Buffer.from(JSON.stringify(oldCodeEnvelope)));
+        const afterRestartMatch = await (await fetch(reloadBase + '/api/sessions/' + first.id)).json();
+        assert.equal(afterRestartMatch.code, first.code);
+        assert.equal(afterRestartMatch.useCount, 1);
         for (const original of [legacy, ...matchedSessions]) {
           const retained = await (await fetch(reloadBase + '/api/sessions/' + original.id)).json();
           assert.equal(retained.code, original.code);
@@ -84,7 +93,7 @@ for (const setting of ['', 'false', 'true']) {
       }
     `], {
       encoding: 'utf8', timeout: 30000,
-      env: { ...process.env, ALLOW_LONGER_TEST_CODES: setting, MESH_HEALTH_DISABLE_RUNTIME: 'false', TURNSTILE_ENABLED: 'false', SESSION_RATE_MAX: '200', KNOWN_OBSERVERS: '', INITIAL_REGION: '', ALLOWED_REGIONS: '', ALLOWED_REGION_GROUPS: '', LOG_LEVEL: 'error', TEST_CHANNEL_SECRET: 'E6D973AAC5101145AD3A3F3A0B3D52EB' },
+      env: { ...process.env, CODE_PREFIX: prefix, ALLOW_LONGER_TEST_CODES: setting, MESH_HEALTH_DISABLE_RUNTIME: 'false', TURNSTILE_ENABLED: 'false', SESSION_RATE_MAX: '200', KNOWN_OBSERVERS: '', INITIAL_REGION: '', ALLOWED_REGIONS: '', ALLOWED_REGION_GROUPS: '', LOG_LEVEL: 'error', TEST_CHANNEL_SECRET: 'E6D973AAC5101145AD3A3F3A0B3D52EB' },
     });
     assert.equal(result.status, 0, result.stdout + result.stderr);
   });

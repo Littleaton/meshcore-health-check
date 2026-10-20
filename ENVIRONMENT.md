@@ -14,9 +14,15 @@ published-image upgrade paths in [HOWTO.md](HOWTO.md#upgrading-to-v140).
 | --- | --- | --- |
 | `MESHCORE_REGION_SCOPES_FILE` | blank | Optional readable local YAML file, loaded at startup. Blank disables public-name matching; configured missing/unreadable/invalid files fail startup. Sole key `regions` is a list of public region-name strings; `regions: []` is valid. Case preserved, implicit `#`, normalized duplicates rejected. No remote fetching or private `$` scopes/keys. |
 
-Limits: 65536-byte regular UTF-8 file, 1024 names, 128 UTF-8 bytes/name; no
-empty/whitespace/control/wildcard names, nonstrings, aliases/anchors, custom tags,
-extra mapping keys or documents. See [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes)
+Limits: 65536-byte regular UTF-8 file and 1024 names. Each name must fit
+firmware storage: at most **30 UTF-8 bytes as written**, including an explicit
+`#`. A bare 30-byte name gains its implicit `#` after storage; an explicit
+hashtag therefore allows at most 29 body bytes. Oversized names are rejected,
+never truncated. Names must satisfy the firmware byte-character predicate and
+the public-only restrictions: no empty/whitespace/control/wildcard names,
+internal `#`, `$` private names, or firmware-invalid punctuation such as `.` and
+`/`. Accented UTF-8 names and hyphens remain supported. Nonstrings,
+aliases/anchors, custom tags, extra mapping keys and documents are rejected. See [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes)
 for copying the empty example, read-only Docker bind and recreation steps.
 Changing this file requires recreation/restart; changing `.env` requires
 recreation, not just `docker compose restart`.

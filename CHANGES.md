@@ -2,6 +2,10 @@
 
 ## v1.4.0
 
+- aligned scope-name validation with firmware character/storage limits, rejecting
+  incompatible names instead of silently allowing unmatchable configurations
+- prepared public region keys once and deferred scope matching to eligible
+  session receipts; expired mapped messages no longer add late receipts
 - preserved good PWA assets across transient HTTP failures and offline use;
   failed, redirected and HTML script/style responses no longer replace cached
   assets, and missing offline scripts/modules/styles never receive dashboard HTML;

@@ -67,7 +67,11 @@ a decoded received test-channel GroupText result. An empty list is valid
 (`enabled: true, count: 0`) but cannot recognize named scopes.
 
 The only YAML key is `regions`, a list of at most 1024 public strings; maximum
-file size is 65536 bytes and each name is at most 128 UTF-8 bytes. Quote names
+file size is 65536 bytes. Each name must fit the firmware's **30 UTF-8 bytes as
+written**, including an explicit `#`; an explicit hashtag leaves 29 bytes for
+the body. Bare names may use 30 bytes before the implicit `#` is added. Names
+are never silently truncated. Firmware-invalid punctuation such as `.` or `/`
+is rejected; valid accented UTF-8 names and hyphens remain supported. Quote names
 starting with `#` (otherwise YAML interprets them as comments). An implicit `#`
 is added, case is preserved, and duplicate normalized names are rejected.
 Malformed YAML, extra keys/documents, custom tags, aliases/anchors, nonstrings,

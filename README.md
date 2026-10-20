@@ -37,7 +37,11 @@ Other community Health Checks:
 Start with [region-scopes.example.yml](region-scopes.example.yml), which contains
 an empty `regions` list and fictional comments only. Set a readable container
 path to a local YAML mapping `regions: ["#Fictional-Cloud"]` using your own
-public names. Names are case-sensitive, and missing `#` is added. No registry is
+public names. Names are case-sensitive, and missing `#` is added. Names must
+fit firmware storage: 30 UTF-8 bytes as written, including an explicit `#`;
+invalid punctuation such as `.` or `/` and oversized names fail startup rather
+than being truncated. Public region keys are prepared once; matching runs only
+for eligible session receipts, not unrelated channel traffic. No registry is
 downloaded; private `$` scopes/keys are unsupported. See the read-only Docker
 mount and recreation instructions in [HOWTO.md](HOWTO.md#optional-meshcore-routing-scopes).
 

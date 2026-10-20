@@ -1673,7 +1673,7 @@ function meshcoreScopeText(scopes) {
   return scopes.map(scope => {
     const names = Array.isArray(scope.names) ? scope.names.join(', ') : '';
     switch (scope.state) {
-      case 'known': return `Candidate ${names}`;
+      case 'known': return names;
       case 'ambiguous': return `Ambiguous: ${names}`;
       case 'unscoped': return 'Unscoped (ordinary route or wildcard)';
       case 'unknown': return 'Scoped, unknown';

@@ -22,6 +22,8 @@ test('MeshCore scope observations render safely in Details, receipt info and sha
   await page.reload();
   await page.locator('#session-details > summary').click();
   await expect(page.locator('#meshcore-scopes')).toContainText(dangerous);
+  await expect(page.locator('#meshcore-scopes')).not.toContainText('Candidate');
+  await expect(page.locator('.receipt-scope')).not.toContainText('Candidate');
   await expect(page.locator('#meshcore-scopes')).toContainText('Ambiguous');
   await expect(page.locator('.receipt-scope')).toContainText('Unscoped');
   await expect(page.locator('.receipt-scope')).toContainText('Scoped, unknown');

@@ -44,6 +44,27 @@ async function openNearbyFixture(page, { mode = 'success', rows, bootstrapOverri
   return observers;
 }
 
+test('channel guidance stays beside copy code outside collapsed details', async ({ page }) => {
+  await openNearbyFixture(page);
+  const guidance = page.locator('.session-sequence .dock-lede');
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(page.locator('#session-details')).not.toHaveAttribute('open');
+    await expect(guidance).toBeVisible();
+    await expect(guidance).toContainText('Generate a test code, send it to');
+    await expect(guidance.locator('#hero-channel')).toHaveText('#health-check');
+    await expect(page.locator('#session-details #hero-channel')).toHaveCount(0);
+    const layout = await page.evaluate(() => {
+      const copy = document.querySelector('.session-code-actions').getBoundingClientRect();
+      const guide = document.querySelector('.session-sequence .dock-lede').getBoundingClientRect();
+      return { gap: guide.top - copy.bottom, overflow: document.documentElement.scrollWidth > innerWidth };
+    });
+    expect(layout.gap).toBeGreaterThanOrEqual(0);
+    expect(layout.gap).toBeLessThan(60);
+    expect(layout.overflow).toBe(false);
+  }
+});
+
 test('disabled browser location keeps map-center and manual choices without geolocation', async ({ page }) => {
   await openNearbyFixture(page, { bootstrapOverrides: { observerStats: { browserLocationEnabled: false, windowSeconds: 900 } } });
   await expect(page.locator('#nearby-location')).toBeHidden();

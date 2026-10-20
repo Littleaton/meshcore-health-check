@@ -2,6 +2,9 @@
 
 ## v1.4.0
 
+- moved the channel-send guidance out of collapsed Details and directly below
+  the code actions so it stays visible beside Copy code on desktop and mobile
+
 - fixed CARTO hostname-authorized tiles by sending only the site origin on
   CARTO image requests; retained the global no-referrer policy and existing
   Turnstile protection without exposing dashboard/share paths or query strings

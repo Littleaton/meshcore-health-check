@@ -2,6 +2,9 @@
 
 ## v1.4.0
 
+- added `CODE_PREFIX` to customize new test code prefixes, for example
+  `NYHC-1A2B3C`; defaults and invalid values use `MHC`
+
 - aligned scope-name validation with firmware character/storage limits, rejecting
   incompatible names instead of silently allowing unmatchable configurations
 - prepared public region keys once and deferred scope matching to eligible

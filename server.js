@@ -147,6 +147,11 @@ function normalizeSiteUrl(value) {
   }
 }
 
+function normalizeCodePrefix(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  return /^[A-Z0-9]{1,8}$/.test(normalized) ? normalized : 'MHC';
+}
+
 function normalizeDistanceUnit(value) {
   const normalized = String(value || '').trim().toLowerCase();
   return ['km', 'kilometer', 'kilometers'].includes(normalized) ? 'km' : 'mi';
@@ -348,6 +353,7 @@ const SITE_URL = normalizeSiteUrl(envValue('SITE_URL', ''));
 const CORESCOPE_URL = normalizeSiteUrl(envValue('CORESCOPE_URL', ''));
 const CARTO_BASEMAP_KEY = envValue('CARTO_BASEMAP_KEY', '');
 const DISTANCE_UNIT = normalizeDistanceUnit(envValue('DISTANCE_UNIT', 'mi'));
+const CODE_PREFIX = normalizeCodePrefix(envValue('CODE_PREFIX', 'MHC'));
 const BROWSER_LOCATION_ENABLED = envBool('BROWSER_LOCATION_ENABLED', true);
 const ALLOW_LONGER_TEST_CODES = envBool('ALLOW_LONGER_TEST_CODES', false);
 const NEARBY_DEFAULT_RADIUS = Number(envValue('NEARBY_DEFAULT_RADIUS', '100'));
@@ -1860,7 +1866,7 @@ function createCode(length) {
       .map((session) => session.code),
   );
   for (let attempt = 0; attempt < 32; attempt += 1) {
-    const candidate = `MHC-${randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length).toUpperCase()}`;
+    const candidate = `${CODE_PREFIX}-${randomBytes(Math.ceil(length / 2)).toString('hex').slice(0, length).toUpperCase()}`;
     if (!existingCodes.has(candidate)) {
       return candidate;
     }

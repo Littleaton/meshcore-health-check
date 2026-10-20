@@ -459,7 +459,9 @@ the app ranks observers over
 When path hops can be matched to observers with coordinates, the app estimates
 distance between those observers and shows the longest packet-path distance for
 the check. Set `DISTANCE_UNIT=mi` or `DISTANCE_UNIT=km` to choose the displayed
-unit. If the path hops are not known observers with coordinates, the longest
+unit. Set `CODE_PREFIX` to brand the generated test codes for your mesh, for
+example `CODE_PREFIX=NYHC` produces codes like `NYHC-1A2B3C`; existing codes and
+share links keep working because matching uses each session's full code. If the path hops are not known observers with coordinates, the longest
 packet metric falls back to the farthest pair of receipt observers that saw the
 message. When known observer anchors exist on both sides of unknown or
 no-coordinate hops, the app estimates across that gap and labels it as

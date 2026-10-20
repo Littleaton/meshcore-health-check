@@ -1675,7 +1675,7 @@ function meshcoreScopeText(scopes) {
     switch (scope.state) {
       case 'known': return names;
       case 'ambiguous': return `Ambiguous: ${names}`;
-      case 'unscoped': return 'Unscoped (ordinary route or wildcard)';
+      case 'unscoped': return 'No scopes observed';
       case 'unknown': return 'Scoped, unknown';
       case 'disabled': return 'Matching disabled (scoped)';
       case 'not-present': return 'Not present (legacy receipt)';
@@ -1692,7 +1692,7 @@ function renderMeshcoreScopes(session) {
     Array.isArray(receipt.meshcoreScopes) && receipt.meshcoreScopes.length
       ? receipt.meshcoreScopes.map(scope => meshcoreScopeText([scope]))
       : [meshcoreScopeText(null)]);
-  element.textContent = descriptions.length ? [...new Set(descriptions)].join(' · ') : 'Awaiting receipts';
+  element.textContent = descriptions.length ? [...new Set(descriptions)].join(' · ') : 'No scopes observed';
 }
 
 function renderReceipts(session) {

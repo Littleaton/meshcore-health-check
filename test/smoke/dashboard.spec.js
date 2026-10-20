@@ -13,6 +13,9 @@ test('MeshCore scope observations render safely in Details, receipt info and sha
   await expect(page.locator('#session-code')).toHaveText(/^MHC-/);
   const id = await page.evaluate(() => sessionStorage.getItem('mesh-health-check-session-id'));
   const session = await (await page.request.get('/api/sessions/' + id)).json();
+  await page.locator('#session-details > summary').click();
+  await expect(page.locator('#meshcore-scopes')).toHaveText('No scopes observed');
+  await expect(page.getByText('Recorded per receipt;', { exact: false })).toHaveCount(0);
   const dangerous = '#Fictional-<img src=x onerror="window.scopeXss=true">';
   const scopes = [{state:'known', names:[dangerous]}, {state:'unscoped',names:[]}, {state:'ambiguous',names:['#Fictional-A','#Fictional-B']}, {state:'unknown',names:[]}, {state:'disabled',names:[]}, {state:'unavailable',names:[]}];
   const retained = {...session, status:'active', useCount:1, observedCount:1, receipts:[{
@@ -25,7 +28,7 @@ test('MeshCore scope observations render safely in Details, receipt info and sha
   await expect(page.locator('#meshcore-scopes')).not.toContainText('Candidate');
   await expect(page.locator('.receipt-scope')).not.toContainText('Candidate');
   await expect(page.locator('#meshcore-scopes')).toContainText('Ambiguous');
-  await expect(page.locator('.receipt-scope')).toContainText('Unscoped');
+  await expect(page.locator('.receipt-scope')).toContainText('No scopes observed');
   await expect(page.locator('.receipt-scope')).toContainText('Scoped, unknown');
   await expect(page.locator('.receipt-scope')).toContainText('Matching disabled');
   await expect(page.locator('.receipt-scope')).toContainText('Unavailable');
@@ -37,6 +40,7 @@ test('MeshCore scope observations render safely in Details, receipt info and sha
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   await page.goto(session.sharePath);
+  await expect(page.getByText('Recorded per receipt;', { exact: false })).toHaveCount(0);
   await expect(page.locator('#meshcore-scopes')).toContainText(dangerous);
   await expect(page.locator('.receipt-scope')).toContainText('#Fictional-B');
   delete retained.receipts[0].meshcoreScopes;

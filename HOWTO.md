@@ -84,6 +84,8 @@ just the matched name, without a Candidate prefix. `ambiguous` retains an explic
 label and means multiple configured candidates, `unknown` means a scoped packet with no
 configured match (possibly an absent public name or private scope), and
 `unscoped` means an ordinary route or first transport code zero/wildcard.
+The UI displays **No scopes observed** for unscoped packets or no receipts;
+the interpretation notes here are not repeated beneath the scope field.
 `disabled` means a scoped packet arrived while name matching was off;
 `unavailable` means the required decoded GroupText/raw payload was unavailable;
 `not-present` means legacy data without a recorded scope. No historical result

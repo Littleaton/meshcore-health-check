@@ -1,5 +1,5 @@
 // Asset revision is independent of the release version; bump for shell changes.
-const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-scope-label-21';
+const CACHE_NAME = 'mesh-health-check-pwa-v1.4.0-scope-copy-22';
 const CORE_ASSETS = [
   '/',
   '/app',

@@ -2,6 +2,8 @@
 
 ## v1.4.0
 
+- simplified MeshCore scope display: removed the explanatory UI note and show
+  No scopes observed for empty results and unscoped packets
 - added optional local `MESHCORE_REGION_SCOPES_FILE` public-name YAML recognition
   with strict bounded startup validation and a packaged empty/fictional example;
   defaults to disabled, never fetches a registry or supports private keys;
